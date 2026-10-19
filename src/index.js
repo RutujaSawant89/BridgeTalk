@@ -3,6 +3,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import TranslateScreen from './screens/TranslateScreen';
 import ComingSoonScreen from './screens/ComingSoonScreen';
+import ScanScreen from './screens/ScanScreen';
 import { colors } from './theme';
 
 const Tab = createBottomTabNavigator();
@@ -22,7 +23,7 @@ export default function Home() {
     >
       <Tab.Screen name="Translate" component={TranslateScreen} />
       <Tab.Screen name="Talk" component={ComingSoonScreen} initialParams={{ emoji: '🎙️', title: 'Talk' }} />
-      <Tab.Screen name="Scan" component={ComingSoonScreen} initialParams={{ emoji: '📷', title: 'Scan' }} />
+      <Tab.Screen name="Scan" component={ScanScreen} />
     </Tab.Navigator>
   );
 }
