@@ -81,6 +81,7 @@ function Half({ side, language, onLanguageChange, heard, said, recording, micDis
           label={side === 'top' ? 'Their language' : 'Your language'}
           value={language}
           onChange={onLanguageChange}
+          rotated={side === 'top'}
         />
       </View>
 

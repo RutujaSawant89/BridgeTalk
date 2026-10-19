@@ -5,7 +5,8 @@ import { LANGUAGES, getLanguage } from '../languages';
 import { colors, radius } from '../theme';
 
 // value / onChange use the language name (e.g. 'Hindi').
-export default function LanguagePicker({ value, onChange, label }) {
+// rotated: turns the sheet 180deg for someone sitting on the opposite side of the phone.
+export default function LanguagePicker({ value, onChange, label, rotated = false }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const insets = useSafeAreaInsets();
@@ -36,35 +37,38 @@ export default function LanguagePicker({ value, onChange, label }) {
         <Text style={styles.caret}>▾</Text>
       </TouchableOpacity>
 
-      <Modal visible={open} transparent animationType="slide" onRequestClose={close}>
-        <Pressable style={styles.backdrop} onPress={close} />
-        <View style={[styles.sheet, { paddingBottom: insets.bottom + 12 }]}>
-          <View style={styles.handle} />
-          {label ? <Text style={styles.sheetTitle}>{label}</Text> : null}
-          <TextInput
-            style={styles.search}
-            placeholder="Search languages"
-            placeholderTextColor={colors.textMuted}
-            value={query}
-            onChangeText={setQuery}
-            autoCorrect={false}
-          />
-          <FlatList
-            data={filtered}
-            keyExtractor={(item) => item.name}
-            keyboardShouldPersistTaps="handled"
-            renderItem={({ item }) => {
-              const active = item.name === value;
-              return (
-                <TouchableOpacity style={[styles.row, active && styles.rowActive]} onPress={() => pick(item)}>
-                  <Text style={styles.flag}>{item.flag}</Text>
-                  <Text style={styles.name}>{item.name}</Text>
-                  <Text style={styles.native}>{item.native}</Text>
-                </TouchableOpacity>
-              );
-            }}
-            ListEmptyComponent={<Text style={styles.empty}>No languages found</Text>}
-          />
+      {/* A rotated sheet sits at the top of the screen, so it fades in rather than sliding up from the bottom */}
+      <Modal visible={open} transparent animationType={rotated ? 'fade' : 'slide'} onRequestClose={close}>
+        <View style={[styles.modalRoot, rotated && styles.rotated]}>
+          <Pressable style={styles.backdrop} onPress={close} />
+          <View style={[styles.sheet, { paddingBottom: (rotated ? insets.top : insets.bottom) + 12 }]}>
+            <View style={styles.handle} />
+            {label ? <Text style={styles.sheetTitle}>{label}</Text> : null}
+            <TextInput
+              style={styles.search}
+              placeholder="Search languages"
+              placeholderTextColor={colors.textMuted}
+              value={query}
+              onChangeText={setQuery}
+              autoCorrect={false}
+            />
+            <FlatList
+              data={filtered}
+              keyExtractor={(item) => item.name}
+              keyboardShouldPersistTaps="handled"
+              renderItem={({ item }) => {
+                const active = item.name === value;
+                return (
+                  <TouchableOpacity style={[styles.row, active && styles.rowActive]} onPress={() => pick(item)}>
+                    <Text style={styles.flag}>{item.flag}</Text>
+                    <Text style={styles.name}>{item.name}</Text>
+                    <Text style={styles.native}>{item.native}</Text>
+                  </TouchableOpacity>
+                );
+              }}
+              ListEmptyComponent={<Text style={styles.empty}>No languages found</Text>}
+            />
+          </View>
         </View>
       </Modal>
     </>
@@ -86,6 +90,8 @@ const styles = StyleSheet.create({
   },
   pillText: { color: colors.text, fontSize: 15, fontWeight: '600', flexShrink: 1 },
   caret: { color: colors.textMuted, marginLeft: 6 },
+  modalRoot: { flex: 1 },
+  rotated: { transform: [{ rotate: '180deg' }] },
   backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)' },
   sheet: {
     maxHeight: '75%',
