@@ -1,6 +1,6 @@
 import { View, Text, StyleSheet,TextInput, TouchableOpacity,Keyboard} from 'react-native'
 import React, {useState} from 'react';
-import axios from 'axios';
+import { chat } from './api';
 import DropDownPicker from 'react-native-dropdown-picker';
 
 import { LinearGradient } from 'expo-linear-gradient';
@@ -14,42 +14,29 @@ const Translator = () => {
     const [openFrom, setOpenFrom] = useState(false);
     const [openTo, setOpenTo] = useState(false);
 
-    const API_KEY = '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'
-
     const translateText = async () => {
         try{
-            const response = await axios.post(
-                'https://api.groq.com/openai/v1/chat/completions',
-                {
-                    model: 'llama-3.3-70b-versatile',
-                    messages: [
-                        {
-                            role: 'user',
-                            content: `Translate the following text from ${fromLanguage} to ${toLanguage}: "${inputText}"`
-                        },
-                        {
-                            role: 'assistant',
-                            content: 'translate'
-                        }
-                    ],
-                    max_tokens: 1000,
-                    temperature: 0.7
-                },
-                {
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${API_KEY}`
+            const reply = await chat(
+                [
+                    {
+                        role: 'user',
+                        content: `Translate the following text from ${fromLanguage} to ${toLanguage}: "${inputText}"`
+                    },
+                    {
+                        role: 'assistant',
+                        content: 'translate'
                     }
-                }
+                ],
+                { maxTokens: 1000, temperature: 0.7 }
             );
 
-            setTranslatedText(response.data.choices[0].message.content);
+            setTranslatedText(reply);
             Keyboard.dismiss(); // Dismiss the keyboard after translation
 
         } catch (error) {
             console.error('Error translating text:', error);
-            setTranslatedText('Translation failed. Please try again.');
-        }   
+            setTranslatedText(`Translation failed: ${error.message}`);
+        }
     }
      const languages = [
         { label: 'English', value: 'English' },
