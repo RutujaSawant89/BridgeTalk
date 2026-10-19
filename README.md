@@ -14,7 +14,7 @@ BridgeTalk is an Expo / React Native app that translates between 24 Indian and w
   - 📄 **Bill / Form**: amount, deadline, next steps, and alerts for penalties or possible scams.
   - 🪧 **Sign / Menu** and 🔍 **Anything**.
   - "Read it to me" voice playback, and tips for a better photo when the image is unreadable.
-- **Talk**: coming soon.
+- **Talk**: face-to-face voice translator for a phone lying flat between two people. Each person gets their own half of the screen (the top half is upside down for the person opposite), taps the mic, speaks, and the other person hears and reads the translation in the chosen vibe. 💬 history keeps the whole conversation.
 - **Proxy server** (`server/`) so the Groq API key never has to ship inside the app.
 
 ## 🎭 Vibes
@@ -78,7 +78,7 @@ npx expo run:android          # build and run a dev client on a device/emulator
 npx expo start                # start Metro for an existing dev client
 ```
 
-The app uses native modules (expo-speech, expo-image-picker, expo-image-manipulator), so it needs a **dev client or a real build**. Expo Go will not cover everything, and you must rebuild after adding native packages.
+The app uses native modules (expo-audio, expo-speech, expo-image-picker, expo-image-manipulator), so it needs a **dev client or a real build**. Expo Go will not cover everything, and you must rebuild after adding native packages.
 
 ### Installable APK with EAS
 
@@ -108,7 +108,6 @@ Use the proxy URL here, never a raw Groq key.
 ├── eas.json                   # EAS build profiles (apk, development, …)
 ├── .env.example               # EXPO_PUBLIC_API_URL / EXPO_PUBLIC_GROQ_API_KEY
 ├── assets/                    # Icons, splash, Lottie landing animation
-├── apk/                       # Prebuilt APK
 ├── server/                    # Express proxy to Groq (deploy to Render)
 │   ├── server.js
 │   └── package.json
@@ -128,11 +127,11 @@ Use the proxy URL here, never a raw Groq key.
     └── screens/
         ├── TranslateScreen.js
         ├── ScanScreen.js
-        └── ComingSoonScreen.js
+        └── TalkScreen.js
 ```
 
 ## 📦 Tech stack
 
-React Native 0.79 · Expo SDK 53 · React Navigation (native stack + bottom tabs) · expo-speech · expo-image-picker · expo-image-manipulator · Lottie · Groq (`openai/gpt-oss-120b`, `whisper-large-v3-turbo`, `qwen/qwen3.8-27b`) · Express + multer proxy
+React Native 0.79 · Expo SDK 53 · React Navigation (native stack + bottom tabs) · expo-audio · expo-speech · expo-image-picker · expo-image-manipulator · Lottie · Groq (`openai/gpt-oss-120b`, `whisper-large-v3-turbo`, `qwen/qwen3.8-27b`) · Express + multer proxy
 
 > AI output can be wrong. Always double-check medicine doses with a doctor or pharmacist, and important bills or forms with the issuer.

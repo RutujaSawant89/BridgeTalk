@@ -37,7 +37,13 @@
         {
           "cameraPermission": "BridgeTalk uses the camera so you can take a photo of a medicine, bill, form or sign and have it explained in your language.",
           "photosPermission": "BridgeTalk needs access to your photos so you can pick a picture of a medicine, bill, form or sign to explain.",
-          "microphonePermission": false
+          "microphonePermission": "BridgeTalk uses the microphone so you can speak and have your words translated for the person you are talking to."
+        }
+      ],
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "BridgeTalk uses the microphone so you can speak and have your words translated for the person you are talking to."
         }
       ]
     ]
