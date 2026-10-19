@@ -3,7 +3,7 @@ export const API_URL = process.env.EXPO_PUBLIC_API_URL || '';
 export const GROQ_API_KEY = process.env.EXPO_PUBLIC_GROQ_API_KEY || '';
 
 export const MODELS = {
-  text: 'llama-3.3-70b-versatile',
+  text: 'openai/gpt-oss-120b',
   speech: 'whisper-large-v3-turbo',
   vision: 'qwen/qwen3.8-27b',
 };
