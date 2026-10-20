@@ -19,6 +19,7 @@ import VibeChips from '../components/VibeChips';
 import { getLanguage } from '../languages';
 import { transcribe } from '../api';
 import { translateOne } from '../translate';
+import { friendlyMessage } from '../errors';
 import { colors, radius } from '../theme';
 
 const RED = '#ff3b5c';
@@ -185,7 +186,7 @@ export default function TalkScreen() {
       setHistory((h) => [message, ...h]);
       speak(translation, toLang);
     } catch (e) {
-      Alert.alert('Something went wrong', e.message || 'Please check your internet connection and try again.');
+      Alert.alert('Oops', friendlyMessage(e, 'talk'));
     } finally {
       setBusy(false);
     }
@@ -200,7 +201,8 @@ export default function TalkScreen() {
     } catch (e) {
       setRecordingSide(null);
       setAudioModeAsync({ allowsRecording: false }).catch(() => {});
-      Alert.alert('Microphone problem', e.message || 'Could not use the microphone. Please try again.');
+      console.warn('[BridgeTalk:talk] microphone error', e);
+      Alert.alert('Microphone problem', 'Could not use the microphone. Please try again.');
     } finally {
       working.current = false;
     }

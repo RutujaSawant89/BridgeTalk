@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, Image, Switch, ActivityIndicator, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
@@ -7,6 +7,7 @@ import * as Speech from 'expo-speech';
 import LanguagePicker from '../components/LanguagePicker';
 import { getLanguage } from '../languages';
 import { SCAN_MODES, explainImage } from '../scan';
+import { friendlyMessage } from '../errors';
 import { colors, radius } from '../theme';
 
 const MAX_SIDE = 1400;
@@ -47,6 +48,7 @@ export default function ScanScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [speaking, setSpeaking] = useState(false);
+  const inFlight = useRef(false); // blocks double taps while the picker or a request is open
 
   useEffect(() => () => Speech.stop(), []);
 
@@ -56,6 +58,8 @@ export default function ScanScreen() {
   };
 
   const pick = async (source) => {
+    if (inFlight.current) return;
+    inFlight.current = true;
     setError('');
     try {
       let picked;
@@ -79,8 +83,9 @@ export default function ScanScreen() {
       const data = await explainImage(image.base64, modeId, language);
       setResult({ data, language, modeId });
     } catch (e) {
-      setError(e.message || 'Something went wrong. Please try again.');
+      setError(friendlyMessage(e, 'scan'));
     } finally {
+      inFlight.current = false;
       setLoading(false);
     }
   };

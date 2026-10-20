@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ScrollView, Share, Keyboard, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Speech from 'expo-speech';
@@ -7,6 +7,7 @@ import VibeChips from '../components/VibeChips';
 import GradientButton from '../components/GradientButton';
 import { VIBES, getLanguage } from '../languages';
 import { translateAllVibes } from '../translate';
+import { friendlyMessage } from '../errors';
 import { colors, radius } from '../theme';
 
 export default function TranslateScreen() {
@@ -18,6 +19,7 @@ export default function TranslateScreen() {
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const inFlight = useRef(false); // blocks a second tap before the loading state renders
 
   const vibe = VIBES.find((v) => v.id === vibeId);
   const current = result?.data[vibeId];
@@ -28,11 +30,13 @@ export default function TranslateScreen() {
   };
 
   const translate = async () => {
+    if (inFlight.current) return;
     const input = text.trim();
     if (!input) {
-      setError('Type something to translate.');
+      setError(friendlyMessage({ kind: 'empty_input' }, 'translate'));
       return;
     }
+    inFlight.current = true;
     Keyboard.dismiss();
     Speech.stop();
     setLoading(true);
@@ -41,8 +45,9 @@ export default function TranslateScreen() {
       const data = await translateAllVibes(input, from, to);
       setResult({ data, to });
     } catch (e) {
-      setError(e.message || 'Translation failed. Please try again.');
+      setError(friendlyMessage(e, 'translate'));
     } finally {
+      inFlight.current = false;
       setLoading(false);
     }
   };

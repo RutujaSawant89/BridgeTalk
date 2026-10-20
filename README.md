@@ -70,6 +70,22 @@ GROQ_API_KEY=gsk_... npm start
 
 It listens on port 3000 (or `PORT`). On a real phone use your computer's LAN IP, e.g. `EXPO_PUBLIC_API_URL=http://192.168.1.10:3000`.
 
+## 🧪 Tests & reliability
+
+```bash
+npm test
+```
+
+Jest covers `parseJSON` (fences, `<think>` tags, extra text, non-Latin scripts, invalid JSON), the friendly error messages, and the API fallback chain.
+
+How the app stays usable when things go wrong:
+
+- **JSON fallbacks:** if Groq's JSON mode rejects a reply, the app retries without JSON mode, then at temperature 0. In Talk, a plain-text translation is the last resort.
+- **Network:** 30-second timeout, one automatic retry for drops, timeouts, cold starts and 5xx errors, and an offline banner.
+- **Friendly errors:** screens never show raw API errors (see [src/errors.js](src/errors.js)); technical details go to the console.
+- **Crash screen:** an `ErrorBoundary` shows a Restart screen instead of a blank app.
+- **Double taps:** identical requests within 2 seconds share one call, and buttons are disabled while a request runs.
+
 ## 🛠️ Build & run
 
 ```bash
@@ -78,7 +94,7 @@ npx expo run:android          # build and run a dev client on a device/emulator
 npx expo start                # start Metro for an existing dev client
 ```
 
-The app uses native modules (expo-audio, expo-speech, expo-image-picker, expo-image-manipulator), so it needs a **dev client or a real build**. Expo Go will not cover everything, and you must rebuild after adding native packages.
+The app uses native modules (expo-audio, @react-native-community/netinfo, expo-speech, expo-image-picker, expo-image-manipulator), so it needs a **dev client or a real build**. Expo Go will not cover everything, and you must rebuild after adding native packages.
 
 ### Installable APK with EAS
 

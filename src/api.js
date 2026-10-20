@@ -1,72 +1,96 @@
 import { API_URL, GROQ_API_KEY, MODELS } from './config';
+import { AppError } from './errors';
+import { parseJSON } from './json';
+
+export { parseJSON };
 
 // With a proxy URL the server holds the key; otherwise call Groq directly.
 const BASE_URL = API_URL ? `${API_URL.replace(/\/+$/, '')}/api` : 'https://api.groq.com/openai/v1';
 const authHeaders = () => (API_URL ? {} : { Authorization: `Bearer ${GROQ_API_KEY}` });
 
-const MAX_RETRY_WAIT_MS = 10000;
+const TIMEOUT_MS = 30000;
+const MAX_RATE_LIMIT_WAIT_MS = 10000;
+const RETRY_DELAY_MS = 1500;
+
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-const apiError = (message, details) => Object.assign(new Error(message), details);
 
-// Turns raw API failures into messages people can act on; keeps code/details for callers.
-function toApiError(status, data) {
-  const apiMessage =
-    data?.error?.message || (typeof data?.error === 'string' ? data.error : null) || data?.message || '';
-  const details = { status, code: data?.error?.code, failedGeneration: data?.error?.failed_generation };
-
-  if (status === 429) {
-    return apiError('Lots of people are translating right now. Please wait a few seconds and try again.', details);
+async function fetchWithTimeout(url, options) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } catch (e) {
+    if (e?.name === 'AbortError') throw new AppError('timeout', `No response after ${TIMEOUT_MS / 1000}s: ${url}`);
+    throw new AppError('network', e?.message || 'Network request failed');
+  } finally {
+    clearTimeout(timer);
   }
-  if (details.code === 'json_validate_failed') {
-    return apiError('The AI got confused by that one. Please try again, or try a shorter sentence.', details);
-  }
-  if (status >= 500 && !apiMessage) {
-    // Render's free tier returns an HTML 502/503 page while the server is waking up
-    return apiError('The server is waking up. Please try again in about 30 seconds.', details);
-  }
-  return apiError(apiMessage || `Request failed (${status})`, details);
 }
 
 // Groq rate-limit errors say "Please try again in 4.59s"
-function retryDelayMs(data) {
-  const match = /try again in ([d.]+)s/i.exec(data?.error?.message || '');
+function rateLimitWaitMs(data) {
+  const match = /try again in ([\d.]+)s/i.exec(data?.error?.message || '');
   return match ? Math.ceil(parseFloat(match[1]) * 1000) + 250 : null;
 }
 
-async function request(path, options, { retryOnRateLimit = true } = {}) {
+function toAppError(path, status, data, raw) {
+  const message =
+    data?.error?.message || (typeof data?.error === 'string' ? data.error : null) || data?.message || '';
+  const extra = { status, code: data?.error?.code, failedGeneration: data?.error?.failed_generation };
+  const detail = `${path} -> HTTP ${status}: ${message || String(raw).slice(0, 200)}`;
+
+  if (status === 429) return new AppError('rate_limit', detail, extra);
+  if (status === 413 || /too large/i.test(message)) return new AppError('too_large', detail, extra);
+  if (extra.code === 'json_validate_failed') return new AppError('json_failed', detail, extra);
+  // Render returns an HTML 502/503 page (no JSON) while the free server is waking up
+  if (status >= 500) return new AppError(data ? 'server' : 'warming', detail, extra);
+  if (path.startsWith('/audio/') && status === 400) return new AppError('audio_unclear', detail, extra);
+  return new AppError(status === 400 ? 'bad_request' : 'api', detail, extra);
+}
+
+const isRetryable = (e) => ['network', 'timeout', 'warming', 'server'].includes(e.kind);
+
+// One automatic retry for network drops, timeouts, cold starts, 5xx and short rate-limit waits.
+async function request(path, options, attempt = 0) {
   if (!API_URL && !GROQ_API_KEY) {
-    throw new Error('No API configured. Set EXPO_PUBLIC_API_URL or EXPO_PUBLIC_GROQ_API_KEY in .env');
+    throw new AppError('config', 'No API configured. Set EXPO_PUBLIC_API_URL or EXPO_PUBLIC_GROQ_API_KEY in .env');
   }
 
-  let response;
+  let error;
   try {
-    response = await fetch(`${BASE_URL}${path}`, {
+    const response = await fetchWithTimeout(`${BASE_URL}${path}`, {
       ...options,
       headers: { ...authHeaders(), ...options.headers },
     });
-  } catch {
-    throw new Error('Network error. Check your internet connection and try again.');
-  }
-
-  const raw = await response.text();
-  let data = null;
-  try {
-    data = raw ? JSON.parse(raw) : null;
-  } catch {
-    // non-JSON body (e.g. an HTML error page)
-  }
-
-  if (!response.ok) {
-    // A short Groq rate-limit wait is retried once automatically instead of bothering the user
-    const wait = response.status === 429 ? retryDelayMs(data) : null;
-    if (retryOnRateLimit && wait && wait <= MAX_RETRY_WAIT_MS) {
-      await sleep(wait);
-      return request(path, options, { retryOnRateLimit: false });
+    const raw = await response.text();
+    let data = null;
+    try {
+      data = raw ? JSON.parse(raw) : null;
+    } catch {
+      // non-JSON body, e.g. an HTML error page
     }
-    throw toApiError(response.status, data);
+
+    if (response.ok) {
+      if (data !== null) return data;
+      error = new AppError('warming', `${path} -> HTTP ${response.status} with a non-JSON body`);
+    } else {
+      error = toAppError(path, response.status, data, raw);
+      const wait = error.kind === 'rate_limit' ? rateLimitWaitMs(data) : null;
+      if (attempt === 0 && wait && wait <= MAX_RATE_LIMIT_WAIT_MS) {
+        await sleep(wait);
+        return request(path, options, 1);
+      }
+    }
+  } catch (e) {
+    error = e instanceof AppError ? e : new AppError('network', e?.message);
   }
-  if (data === null) throw new Error('Unexpected response from the server.');
-  return data;
+
+  if (attempt === 0 && isRetryable(error)) {
+    console.warn(`[BridgeTalk] retrying ${path} after ${error.kind}: ${error.message}`);
+    await sleep(RETRY_DELAY_MS);
+    return request(path, options, 1);
+  }
+  throw error;
 }
 
 // Returns the assistant's reply text.
@@ -82,42 +106,36 @@ export async function chat(messages, { model = MODELS.text, temperature = 0.3, j
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   });
-  return data.choices?.[0]?.message?.content ?? '';
+  const content = data.choices?.[0]?.message?.content ?? '';
+  if (!content.trim()) throw new AppError('bad_response', 'Model returned an empty reply');
+  return content;
 }
 
-// Pulls a JSON object out of a model reply, ignoring <think> blocks and ```json fences.
-export function parseJSON(text) {
-  const cleaned = String(text)
-    .replace(/<think>[\s\S]*?<\/think>/gi, '')
-    .replace(/```(?:json)?/gi, '')
-    .trim();
-  try {
-    return JSON.parse(cleaned);
-  } catch {
-    const match = cleaned.match(/\{[\s\S]*\}/);
-    if (match) {
-      try {
-        return JSON.parse(match[0]);
-      } catch {}
-    }
-    throw new Error('The AI returned an unreadable response. Please try again.');
-  }
-}
+const isJsonProblem = (e) => e?.kind === 'json_failed' || e?.kind === 'bad_response';
 
+// JSON reply with fallbacks: Groq's JSON mode can reject valid-looking output
+// ("Failed to validate JSON"), so retry without it, then once more at temperature 0.
 export async function chatJSON(messages, options = {}) {
   try {
     return parseJSON(await chat(messages, { ...options, json: true }));
   } catch (e) {
-    if (e.code !== 'json_validate_failed') throw e;
-    // Groq rejected malformed JSON; its partial output is often still usable
+    if (!isJsonProblem(e)) throw e;
+    console.warn('[BridgeTalk] JSON mode failed, retrying without response_format:', e.message);
     if (e.failedGeneration) {
       try {
         return parseJSON(e.failedGeneration);
       } catch {}
     }
-    // Otherwise the reply was most likely cut off: retry once with more room
-    return parseJSON(await chat(messages, { ...options, json: true, maxTokens: (options.maxTokens ?? 1500) * 2 }));
   }
+
+  try {
+    return parseJSON(await chat(messages, { ...options, json: false }));
+  } catch (e) {
+    if (!isJsonProblem(e)) throw e;
+    console.warn('[BridgeTalk] plain reply was not JSON, retrying at temperature 0:', e.message);
+  }
+
+  return parseJSON(await chat(messages, { ...options, json: false, temperature: 0 }));
 }
 
 // uri: local audio file from the recorder. languageCode: Whisper ISO code, or null to auto-detect.
@@ -133,17 +151,20 @@ export async function transcribe(uri, languageCode) {
 }
 
 export async function askAboutImage(base64, prompt) {
-  const content = await chat(
-    [
-      {
-        role: 'user',
-        content: [
-          { type: 'text', text: `${prompt}\n\nRespond with JSON only.` },
-          { type: 'image_url', image_url: { url: `data:image/jpeg;base64,${base64}` } },
-        ],
-      },
-    ],
-    { model: MODELS.vision, temperature: 0.2 }
-  );
-  return parseJSON(content);
+  const messages = [
+    {
+      role: 'user',
+      content: [
+        { type: 'text', text: `${prompt}\n\nRespond with JSON only.` },
+        { type: 'image_url', image_url: { url: `data:image/jpeg;base64,${base64}` } },
+      ],
+    },
+  ];
+  try {
+    return parseJSON(await chat(messages, { model: MODELS.vision, temperature: 0.2 }));
+  } catch (e) {
+    if (!isJsonProblem(e)) throw e;
+    console.warn('[BridgeTalk] vision reply was not JSON, retrying at temperature 0:', e.message);
+    return parseJSON(await chat(messages, { model: MODELS.vision, temperature: 0 }));
+  }
 }
