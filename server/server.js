@@ -6,6 +6,10 @@ const { rateLimit } = require('express-rate-limit');
 const GROQ_URL = 'https://api.groq.com/openai/v1';
 const GROQ_API_KEY = process.env.GROQ_API_KEY;
 const PORT = process.env.PORT || 3000;
+// Mobile carriers put many users behind one IP (CGNAT), so this is generous; Groq's own limits are the real cap.
+const RATE_LIMIT_PER_MIN = Number(process.env.RATE_LIMIT_PER_MIN) || 120;
+// Shorter than the app's 30 s timeout, so the app gets a clean 504 instead of a dropped connection.
+const UPSTREAM_TIMEOUT_MS = 28000;
 
 // Keep in sync with MODELS in src/config.js
 const ALLOWED_MODELS = new Set(['openai/gpt-oss-120b', 'whisper-large-v3-turbo', 'qwen/qwen3.8-27b']);
@@ -27,7 +31,7 @@ app.use(
   '/api',
   rateLimit({
     windowMs: 60 * 1000,
-    limit: 40,
+    limit: RATE_LIMIT_PER_MIN,
     standardHeaders: 'draft-8',
     legacyHeaders: false,
     handler: (req, res) => sendError(res, 429, 'Too many requests. Please wait a minute and try again.'),
@@ -50,6 +54,10 @@ async function relay(res, upstreamPromise) {
   try {
     upstream = await upstreamPromise;
   } catch (e) {
+    if (e.name === 'TimeoutError' || e.name === 'AbortError') {
+      console.error('Groq request timed out');
+      return sendError(res, 504, 'The AI service took too long to answer. Please try again.');
+    }
     console.error('Groq request failed:', e.message);
     return sendError(res, 502, 'Could not reach the AI service. Please try again.');
   }
@@ -70,6 +78,7 @@ app.post('/api/chat/completions', express.json({ limit: '10mb' }), async (req, r
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${GROQ_API_KEY}` },
       body: JSON.stringify({ ...body, stream: false }),
+      signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
     })
   );
 });
@@ -94,6 +103,7 @@ app.post('/api/audio/transcriptions', upload.single('file'), async (req, res) =>
       method: 'POST',
       headers: { Authorization: `Bearer ${GROQ_API_KEY}` },
       body: form,
+      signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
     })
   );
 });
