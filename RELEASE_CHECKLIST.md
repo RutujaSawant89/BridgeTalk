@@ -123,19 +123,19 @@ Run this on a real phone before each release. Languages: **Hindi** (Devanagari),
 
 See `scripts/loadtest.js` (`node scripts/loadtest.js`). Results from the live server are below.
 
-**Run on 2026-10-20 against the live Render server, from one machine (one IP).** Render was still serving the previous server version (1.0: no `/health`, so phase 1 got 404s; limit 120/min per IP). Re-run once 1.2.0 is live: `APP_TOKEN=<token> node scripts/loadtest.js`.
+**Run on 2026-10-20 against the live Render server running 1.2.0, from one machine (one IP).** `APP_TOKEN` wasn't active on the server yet, so no token was needed. Re-run any time with `node scripts/loadtest.js` (add `APP_TOKEN=<token>` once the check is on).
 
 | Test | Requests | Throughput | p50 | p95 | Max | Result |
 |---|---|---|---|---|---|---|
-| 50 connections × 60 s, `GET /health` | 10,344 | 172 req/s | 281 ms | 337 ms | 2.98 s | 0 timeouts, no crashes; all 404 only because 1.0 has no `/health` route |
-| 20 connections × 30 s, chat | 1,981 | 66 req/s | 285 ms | 390 ms | 1.04 s | **31 × 200, 1,950 × 429**, 0 timeouts |
-| 10 translations spaced 3 s apart | 10 | n/a | **594 ms** | **1.26 s** | 1.26 s | 10/10 OK |
+| 50 connections × 60 s, `GET /health` | 10,310 | 172 req/s | 282 ms | 329 ms | 1.35 s | **all 200, 0% errors, 0 timeouts** |
+| 20 connections × 30 s, chat | 1,556 | 52 req/s | 284 ms | 749 ms | 2.97 s | 37 × 200, 1,519 × 429 from the **proxy's per-IP limit** (by design: one IP), 0 timeouts |
+| 10 translations spaced 3 s apart | 10 | n/a | **638 ms** | **1.10 s** | 1.10 s | 10/10 OK |
 | Local 1.2.0 + fake Groq, 50 conn `/health` | 3,600 / 5 s | 720 req/s | 55 ms | n/a | 317 ms | 0 errors |
 
 **What it means for ~50 users**
 
 - **The server isn't the bottleneck.** The free Render instance handled 172 req/s at 50 concurrent connections with no timeouts and no crashes. Most of the 280 ms is the network round trip to Render's region.
-- **Groq's free tier is the limit.** Only about 30 chat requests per minute get through (`openai/gpt-oss-120b` free tier: about 30 requests/min and 8,000 tokens/min for the whole account). The burst got 31 successes, then 429s. In the test the proxy's own per-IP limit also kicked in, because every request came from one IP. With real users on different IPs, Groq's account-wide limit is what they'll hit.
+- **Groq's free tier is the limit for real users.** In this test every request came from one IP, so the proxy's 30/min per-IP limit stopped the burst first (friendly 429 JSON, no crashes). With real users on different IPs, the cap is Groq's account-wide free tier for `openai/gpt-oss-120b`: about 30 requests/min and 8,000 tokens/min shared by everyone. An earlier run against the old server hit exactly that ceiling.
 - **A real translation takes about 0.6 s (p50) to 1.3 s (p95)** when not rate-limited.
 - **Cold start:** after about 15 idle minutes the first request waits 30–60 s. The app now pings `/health` on launch and shows "Waking up the server…".
 
