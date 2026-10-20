@@ -30,7 +30,13 @@ export default function LanguagePicker({ value, onChange, label, rotated = false
 
   return (
     <>
-      <TouchableOpacity style={styles.pill} onPress={() => setOpen(true)} accessibilityLabel={label}>
+      <TouchableOpacity
+        style={styles.pill}
+        onPress={() => setOpen(true)}
+        accessibilityRole="button"
+        accessibilityLabel={`${label ?? 'Language'}: ${selected?.name ?? 'not set'}`}
+        accessibilityHint="Opens the language list"
+      >
         <Text style={styles.pillText} numberOfLines={1}>
           {selected ? `${selected.flag} ${selected.name}` : 'Select'}
         </Text>
@@ -40,7 +46,7 @@ export default function LanguagePicker({ value, onChange, label, rotated = false
       {/* A rotated sheet sits at the top of the screen, so it fades in rather than sliding up from the bottom */}
       <Modal visible={open} transparent animationType={rotated ? 'fade' : 'slide'} onRequestClose={close}>
         <View style={[styles.modalRoot, rotated && styles.rotated]}>
-          <Pressable style={styles.backdrop} onPress={close} />
+          <Pressable style={styles.backdrop} onPress={close} accessibilityRole="button" accessibilityLabel="Close language list" />
           <View style={[styles.sheet, { paddingBottom: (rotated ? insets.top : insets.bottom) + 12 }]}>
             <View style={styles.handle} />
             {label ? <Text style={styles.sheetTitle}>{label}</Text> : null}
@@ -51,6 +57,7 @@ export default function LanguagePicker({ value, onChange, label, rotated = false
               value={query}
               onChangeText={setQuery}
               autoCorrect={false}
+              accessibilityLabel="Search languages"
             />
             <FlatList
               data={filtered}
@@ -59,7 +66,13 @@ export default function LanguagePicker({ value, onChange, label, rotated = false
               renderItem={({ item }) => {
                 const active = item.name === value;
                 return (
-                  <TouchableOpacity style={[styles.row, active && styles.rowActive]} onPress={() => pick(item)}>
+                  <TouchableOpacity
+                    style={[styles.row, active && styles.rowActive]}
+                    onPress={() => pick(item)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${item.name}, ${item.native}`}
+                    accessibilityState={{ selected: active }}
+                  >
                     <Text style={styles.flag}>{item.flag}</Text>
                     <Text style={styles.name}>{item.name}</Text>
                     <Text style={styles.native}>{item.native}</Text>

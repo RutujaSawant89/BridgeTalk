@@ -18,6 +18,7 @@ export default function VibeChips({ value, onChange }) {
               active && { backgroundColor: vibe.color },
             ]}
             accessibilityRole="button"
+            accessibilityLabel={`${vibe.label} vibe`}
             accessibilityState={{ selected: active }}
           >
             <Text style={[styles.label, active && styles.labelActive]}>

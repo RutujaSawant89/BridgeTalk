@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Image, Switch, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, Image, Switch, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
@@ -8,6 +8,9 @@ import LanguagePicker from '../components/LanguagePicker';
 import { getLanguage } from '../languages';
 import { SCAN_MODES, explainImage } from '../scan';
 import { friendlyMessage } from '../errors';
+import { SkeletonCard } from '../components/Skeleton';
+import { usePrefs } from '../prefs';
+import * as haptics from '../haptics';
 import { colors, radius } from '../theme';
 
 const MAX_SIDE = 1400;
@@ -40,8 +43,10 @@ function Section({ icon, title, items, color = colors.text }) {
 }
 
 export default function ScanScreen() {
+  const { prefs } = usePrefs();
   const [modeId, setModeId] = useState('medicine');
-  const [language, setLanguage] = useState('Hindi');
+  const [language, setLanguage] = useState(prefs.myLanguage);
+  useEffect(() => setLanguage(prefs.myLanguage), [prefs.myLanguage]);
   const [photo, setPhoto] = useState(null);
   // { data, language } — the language the explanation was written in, for the voice
   const [result, setResult] = useState(null);
@@ -82,6 +87,7 @@ export default function ScanScreen() {
       setPhoto(image.uri);
       const data = await explainImage(image.base64, modeId, language);
       setResult({ data, language, modeId });
+      if (data.readable) haptics.success();
     } catch (e) {
       setError(friendlyMessage(e, 'scan'));
     } finally {
@@ -120,6 +126,7 @@ export default function ScanScreen() {
                 key={mode.id}
                 style={[styles.modeCard, active && styles.modeCardActive]}
                 onPress={() => setModeId(mode.id)}
+                accessibilityLabel={`${mode.label} mode: ${mode.hint}`}
                 accessibilityRole="button"
                 accessibilityState={{ selected: active }}
               >
@@ -137,10 +144,10 @@ export default function ScanScreen() {
         </View>
 
         <View style={styles.buttons}>
-          <TouchableOpacity style={[styles.sourceBtn, styles.cameraBtn]} onPress={() => pick('camera')} disabled={loading}>
+          <TouchableOpacity style={[styles.sourceBtn, styles.cameraBtn]} onPress={() => pick('camera')} disabled={loading} accessibilityRole="button" accessibilityLabel="Take a photo with the camera" accessibilityState={{ disabled: loading }}>
             <Text style={styles.sourceText}>📸 Camera</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.sourceBtn} onPress={() => pick('gallery')} disabled={loading}>
+          <TouchableOpacity style={styles.sourceBtn} onPress={() => pick('gallery')} disabled={loading} accessibilityRole="button" accessibilityLabel="Choose a photo from the gallery" accessibilityState={{ disabled: loading }}>
             <Text style={styles.sourceText}>🖼️ Gallery</Text>
           </TouchableOpacity>
         </View>
@@ -149,8 +156,8 @@ export default function ScanScreen() {
 
         {loading ? (
           <View style={styles.loading}>
-            <ActivityIndicator color={colors.accent} size="large" />
             <Text style={styles.loadingText}>Reading your photo…</Text>
+            <SkeletonCard lines={4} label="Reading your photo" />
           </View>
         ) : null}
 
@@ -171,6 +178,7 @@ export default function ScanScreen() {
                 <Switch
                   value={speaking}
                   onValueChange={toggleSpeak}
+                  accessibilityLabel="Read it to me"
                   trackColor={{ true: colors.accent, false: colors.border }}
                   thumbColor="#fff"
                 />
@@ -233,8 +241,8 @@ const styles = StyleSheet.create({
   cameraBtn: { backgroundColor: colors.accent, borderColor: colors.accent },
   sourceText: { color: '#fff', fontSize: 16, fontWeight: '700' },
   preview: { width: '100%', height: 200, borderRadius: radius.md, backgroundColor: colors.card },
-  loading: { alignItems: 'center', gap: 8, paddingVertical: 12 },
-  loadingText: { color: colors.textMuted, fontSize: 15 },
+  loading: { gap: 8, paddingVertical: 4 },
+  loadingText: { color: colors.textMuted, fontSize: 15, textAlign: 'center' },
   error: { color: colors.error, fontSize: 15, textAlign: 'center' },
   resultCard: { backgroundColor: colors.card, borderRadius: radius.md, padding: 18, gap: 14 },
   unreadable: { color: colors.tipText, fontSize: 15, fontWeight: '600' },

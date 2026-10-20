@@ -1,37 +1,63 @@
-import React, { useRef, useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, Share, Keyboard, StyleSheet } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, Keyboard, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Speech from 'expo-speech';
 import LanguagePicker from '../components/LanguagePicker';
 import VibeChips from '../components/VibeChips';
 import GradientButton from '../components/GradientButton';
+import ActionButton from '../components/ActionButton';
+import PhraseOfTheDay from '../components/PhraseOfTheDay';
+import ShareCardModal from '../components/ShareCardModal';
+import { SkeletonCard } from '../components/Skeleton';
 import { VIBES, getLanguage } from '../languages';
 import { translateAllVibes } from '../translate';
 import { friendlyMessage } from '../errors';
-import { colors, radius } from '../theme';
+import { usePrefs } from '../prefs';
+import { useHistory } from '../history';
+import * as haptics from '../haptics';
+import { colors, radius, space } from '../theme';
 
 export default function TranslateScreen() {
-  const [from, setFrom] = useState('English');
-  const [to, setTo] = useState('Hindi');
+  const { prefs, recordVisit } = usePrefs();
+  const history = useHistory();
+  const [from, setFrom] = useState(prefs.myLanguage);
+  const [to, setTo] = useState(prefs.travelLanguage);
   const [text, setText] = useState('');
   const [vibeId, setVibeId] = useState('casual');
-  // { data, to } — remembers which language the result is in, so Listen uses the right voice
+  // { data, from, to, original, historyId }: remembers what the result is, for Listen, Save and Share
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [sharing, setSharing] = useState(null);
   const inFlight = useRef(false); // blocks a second tap before the loading state renders
+
+  // Follow the saved languages when they change in onboarding or settings
+  useEffect(() => setFrom(prefs.myLanguage), [prefs.myLanguage]);
+  useEffect(() => setTo(prefs.travelLanguage), [prefs.travelLanguage]);
+  useEffect(() => recordVisit(), [recordVisit]);
+  useEffect(() => () => Speech.stop(), []);
 
   const vibe = VIBES.find((v) => v.id === vibeId);
   const current = result?.data[vibeId];
+  const historyItem = result ? history.items.find((i) => i.id === result.historyId) : null;
+  const starred = Boolean(historyItem?.starred);
+
+  // Keep the history entry in step with the vibe being looked at
+  useEffect(() => {
+    if (result?.historyId && current?.translation) {
+      history.patch(result.historyId, { vibeId, translation: current.translation, pronunciation: current.pronunciation });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vibeId]);
 
   const swap = () => {
     setFrom(to);
     setTo(from);
   };
 
-  const translate = async () => {
+  const translate = async (overrideText) => {
     if (inFlight.current) return;
-    const input = text.trim();
+    const input = (overrideText ?? text).trim();
     if (!input) {
       setError(friendlyMessage({ kind: 'empty_input' }, 'translate'));
       return;
@@ -41,15 +67,33 @@ export default function TranslateScreen() {
     Speech.stop();
     setLoading(true);
     setError('');
+    setResult(null);
     try {
       const data = await translateAllVibes(input, from, to);
-      setResult({ data, to });
+      const shown = data[vibeId];
+      const historyId = history.add({
+        kind: 'translate',
+        original: input,
+        from,
+        to,
+        vibeId,
+        translation: shown.translation,
+        pronunciation: shown.pronunciation,
+      });
+      setResult({ data, from, to, original: input, historyId });
+      haptics.success();
     } catch (e) {
       setError(friendlyMessage(e, 'translate'));
+      haptics.failure();
     } finally {
       inFlight.current = false;
       setLoading(false);
     }
+  };
+
+  const tryPhrase = (phrase) => {
+    setText(phrase);
+    translate(phrase);
   };
 
   const listen = () => {
@@ -58,24 +102,32 @@ export default function TranslateScreen() {
     Speech.speak(current.translation, { language: getLanguage(result.to)?.tts });
   };
 
-  const share = () => {
-    if (!current?.translation) return;
-    const message = current.pronunciation
-      ? `${current.translation}\n(${current.pronunciation})`
-      : current.translation;
-    Share.share({ message }).catch(() => {});
+  const toggleSave = () => {
+    if (!result?.historyId) return;
+    history.toggleStar(result.historyId, { vibeId, translation: current.translation, pronunciation: current.pronunciation });
+    haptics.tap();
   };
+
+  const openShare = () =>
+    setSharing({
+      original: result.original,
+      translation: current.translation,
+      pronunciation: current.pronunciation,
+      from: result.from,
+      to: result.to,
+      vibeId,
+    });
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        <Text style={styles.title}>
+        <Text style={styles.title} accessibilityRole="header">
           BridgeTalk<Text style={{ color: colors.accent }}>.</Text>
         </Text>
 
         <View style={styles.pickers}>
           <LanguagePicker label="Translate from" value={from} onChange={setFrom} />
-          <TouchableOpacity style={styles.swap} onPress={swap} accessibilityLabel="Swap languages">
+          <TouchableOpacity style={styles.swap} onPress={swap} accessibilityRole="button" accessibilityLabel="Swap languages">
             <Text style={styles.swapText}>⇄</Text>
           </TouchableOpacity>
           <LanguagePicker label="Translate to" value={to} onChange={setTo} />
@@ -83,19 +135,26 @@ export default function TranslateScreen() {
 
         <TextInput
           style={styles.input}
-          placeholder="Enter text to translate"
+          placeholder="Type something to translate"
           placeholderTextColor={colors.textMuted}
           value={text}
           onChangeText={setText}
           multiline
           textAlignVertical="top"
+          accessibilityLabel={`Text to translate from ${from}`}
         />
 
         <VibeChips value={vibeId} onChange={setVibeId} />
 
-        <GradientButton title="Translate" onPress={translate} loading={loading} style={styles.button} />
+        <GradientButton title="Translate" onPress={() => translate()} loading={loading} disabled={!text.trim()} />
 
-        {error ? <Text style={styles.error}>{error}</Text> : null}
+        {error ? (
+          <Text style={styles.error} accessibilityLiveRegion="polite">
+            {error}
+          </Text>
+        ) : null}
+
+        {loading ? <SkeletonCard label="Translating" /> : null}
 
         {current?.translation ? (
           <View style={[styles.resultCard, { borderColor: vibe.color }]}>
@@ -111,12 +170,15 @@ export default function TranslateScreen() {
               </Text>
             ) : null}
             <View style={styles.actions}>
-              <TouchableOpacity style={styles.actionBtn} onPress={listen}>
-                <Text style={styles.actionText}>🔊 Listen</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.actionBtn} onPress={share}>
-                <Text style={styles.actionText}>📤 Share</Text>
-              </TouchableOpacity>
+              <ActionButton icon="🔊" label="Listen" onPress={listen} accessibilityLabel="Listen to the translation" />
+              <ActionButton
+                icon={starred ? '⭐' : '☆'}
+                label={starred ? 'Saved' : 'Save'}
+                active={starred}
+                onPress={toggleSave}
+                accessibilityLabel={starred ? 'Remove from saved' : 'Save translation'}
+              />
+              <ActionButton icon="🖼️" label="Share" onPress={openShare} accessibilityLabel="Share as an image card" />
             </View>
           </View>
         ) : null}
@@ -127,16 +189,19 @@ export default function TranslateScreen() {
             <Text style={styles.tipText}>{result.data.culture_tip}</Text>
           </View>
         ) : null}
+
+        {!result && !loading ? <PhraseOfTheDay language={to} streak={prefs.streak?.count ?? 0} onUse={tryPhrase} /> : null}
       </ScrollView>
+      <ShareCardModal item={sharing} onClose={() => setSharing(null)} />
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.bg },
-  content: { padding: 20, paddingBottom: 40, gap: 16 },
+  content: { padding: space.xl, paddingBottom: space.xxl + space.sm, gap: space.lg },
   title: { color: colors.text, fontSize: 28, fontWeight: 'bold', fontFamily: 'monospace' },
-  pickers: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  pickers: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
   swap: {
     width: 44,
     height: 44,
@@ -151,39 +216,30 @@ const styles = StyleSheet.create({
     backgroundColor: colors.card,
     color: colors.text,
     borderRadius: radius.md,
-    padding: 16,
+    padding: space.lg,
     fontSize: 17,
     borderWidth: 1,
     borderColor: colors.border,
   },
-  button: { marginTop: 4 },
   error: { color: colors.error, fontSize: 15, textAlign: 'center' },
   resultCard: {
     backgroundColor: colors.card,
     borderRadius: radius.md,
     borderWidth: 2,
-    padding: 18,
-    gap: 10,
+    padding: space.lg + 2,
+    gap: space.sm + 2,
   },
   vibeTag: { fontSize: 13, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
   translation: { color: colors.text, fontSize: 26, fontWeight: '600', lineHeight: 36 },
   pronunciation: { color: colors.textMuted, fontSize: 16, fontStyle: 'italic' },
-  actions: { flexDirection: 'row', gap: 10, marginTop: 6 },
-  actionBtn: {
-    flex: 1,
-    backgroundColor: colors.cardAlt,
-    borderRadius: radius.pill,
-    paddingVertical: 10,
-    alignItems: 'center',
-  },
-  actionText: { color: colors.text, fontSize: 15, fontWeight: '600' },
+  actions: { flexDirection: 'row', gap: space.sm, marginTop: space.xs + 2 },
   tipCard: {
     backgroundColor: colors.tipBg,
     borderColor: colors.tipBorder,
     borderWidth: 1,
     borderRadius: radius.md,
-    padding: 16,
-    gap: 6,
+    padding: space.lg,
+    gap: space.xs + 2,
   },
   tipTitle: { color: colors.tipBorder, fontSize: 15, fontWeight: '700' },
   tipText: { color: colors.tipText, fontSize: 15, lineHeight: 21 },

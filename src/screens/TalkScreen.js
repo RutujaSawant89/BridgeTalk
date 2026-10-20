@@ -20,6 +20,9 @@ import { getLanguage } from '../languages';
 import { transcribe } from '../api';
 import { translateOne } from '../translate';
 import { friendlyMessage } from '../errors';
+import { usePrefs } from '../prefs';
+import { useHistory } from '../history';
+import * as haptics from '../haptics';
 import { colors, radius } from '../theme';
 
 const RED = '#ff3b5c';
@@ -93,7 +96,12 @@ function Half({ side, language, onLanguageChange, heard, said, recording, micDis
             <Text style={styles.busyText}>Translating…</Text>
           </View>
         ) : heard ? (
-          <TouchableOpacity onPress={() => speak(heard, language)} accessibilityHint="Plays it again">
+          <TouchableOpacity
+            onPress={() => speak(heard, language)}
+            accessibilityRole="button"
+            accessibilityLabel={`Replay: ${heard}`}
+            accessibilityHint="Plays the translation again"
+          >
             <Text style={styles.heard}>{heard}</Text>
             <Text style={styles.replayHint}>🔊 Tap to replay</Text>
           </TouchableOpacity>
@@ -115,8 +123,12 @@ function Half({ side, language, onLanguageChange, heard, said, recording, micDis
 }
 
 export default function TalkScreen() {
+  const { prefs } = usePrefs();
+  const savedHistory = useHistory();
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
-  const [languages, setLanguages] = useState({ top: 'Hindi', bottom: 'English' });
+  // The person opposite speaks the travel language; the phone's owner sits at the bottom
+  const [languages, setLanguages] = useState({ top: prefs.travelLanguage, bottom: prefs.myLanguage });
+  useEffect(() => setLanguages({ top: prefs.travelLanguage, bottom: prefs.myLanguage }), [prefs.travelLanguage, prefs.myLanguage]);
   const [vibeId, setVibeId] = useState('casual');
   const [recordingSide, setRecordingSide] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -145,6 +157,7 @@ export default function TalkScreen() {
     await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
     await recorder.prepareToRecordAsync();
     recorder.record();
+    haptics.tap();
     setRecordingSide(side);
   };
 
@@ -153,6 +166,7 @@ export default function TalkScreen() {
     const toLang = languages[other(side)];
 
     await recorder.stop();
+    haptics.tap();
     await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true });
     setRecordingSide(null);
     const uri = recorder.uri;
@@ -184,8 +198,11 @@ export default function TalkScreen() {
         vibeId,
       };
       setHistory((h) => [message, ...h]);
+      savedHistory.add({ kind: 'talk', original: text, translation, pronunciation, from: fromLang, to: toLang, vibeId });
+      haptics.success();
       speak(translation, toLang);
     } catch (e) {
+      haptics.failure();
       Alert.alert('Oops', friendlyMessage(e, 'talk'));
     } finally {
       setBusy(false);
@@ -246,10 +263,10 @@ export default function TalkScreen() {
           <View style={styles.historyHeader}>
             <Text style={styles.historyTitle}>Conversation</Text>
             <View style={styles.historyActions}>
-              <TouchableOpacity onPress={clearHistory} disabled={!history.length}>
+              <TouchableOpacity onPress={clearHistory} disabled={!history.length} accessibilityRole="button" accessibilityLabel="Clear conversation" hitSlop={8}>
                 <Text style={[styles.clear, !history.length && styles.disabledText]}>Clear</Text>
               </TouchableOpacity>
-              <TouchableOpacity onPress={() => setHistoryOpen(false)}>
+              <TouchableOpacity onPress={() => setHistoryOpen(false)} accessibilityRole="button" accessibilityLabel="Close conversation" hitSlop={8}>
                 <Text style={styles.done}>Done</Text>
               </TouchableOpacity>
             </View>
@@ -265,6 +282,9 @@ export default function TalkScreen() {
               return (
                 <TouchableOpacity
                   onPress={() => speak(item.translation, item.toLang)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${item.original}. Translation: ${item.translation}`}
+                  accessibilityHint="Plays the translation"
                   style={[styles.bubble, mine ? styles.bubbleMine : styles.bubbleTheirs]}
                 >
                   <Text style={styles.bubbleMeta}>

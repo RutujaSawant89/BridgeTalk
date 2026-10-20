@@ -25,6 +25,17 @@ export const LANGUAGES = [
   { name: 'Russian', native: 'Русский', whisper: 'ru', tts: 'ru-RU', flag: '🇷🇺' },
   { name: 'Italian', native: 'Italiano', whisper: 'it', tts: 'it-IT', flag: '🇮🇹' },
   { name: 'Turkish', native: 'Türkçe', whisper: 'tr', tts: 'tr-TR', flag: '🇹🇷' },
+  { name: 'Thai', native: 'ไทย', whisper: 'th', tts: 'th-TH', flag: '🇹🇭' },
+  { name: 'Vietnamese', native: 'Tiếng Việt', whisper: 'vi', tts: 'vi-VN', flag: '🇻🇳' },
+  { name: 'Indonesian', native: 'Bahasa Indonesia', whisper: 'id', tts: 'id-ID', flag: '🇮🇩' },
+  { name: 'Dutch', native: 'Nederlands', whisper: 'nl', tts: 'nl-NL', flag: '🇳🇱' },
+  { name: 'Greek', native: 'Ελληνικά', whisper: 'el', tts: 'el-GR', flag: '🇬🇷' },
+  { name: 'Polish', native: 'Polski', whisper: 'pl', tts: 'pl-PL', flag: '🇵🇱' },
+  { name: 'Swahili', native: 'Kiswahili', whisper: 'sw', tts: 'sw-KE', flag: '🇰🇪' },
+  { name: 'Hebrew', native: 'עברית', whisper: 'he', tts: 'he-IL', flag: '🇮🇱' },
+  { name: 'Malay', native: 'Bahasa Melayu', whisper: 'ms', tts: 'ms-MY', flag: '🇲🇾' },
+  // Whisper calls Filipino by its base language, Tagalog
+  { name: 'Filipino', native: 'Filipino', whisper: 'tl', tts: 'fil-PH', flag: '🇵🇭' },
 ];
 
 export const getLanguage = (name) => LANGUAGES.find((l) => l.name === name);

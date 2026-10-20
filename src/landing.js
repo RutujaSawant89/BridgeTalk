@@ -26,7 +26,7 @@ export default function Landing() {
       
        {/*  <Text style={styles.welcomeText}>Welcome</Text> */}
         <Text style={styles.msg}>No matter the language, your message matters — BridgeTalk ensures you're always understood.</Text>
-        <TouchableOpacity style={styles.button}onPress={() => navigation.replace('Home')}>
+        <TouchableOpacity style={styles.button} onPress={() => navigation.replace('Home')} accessibilityRole="button" accessibilityLabel="Get started">
         <LinearGradient
             colors={['#3f80f5', '#6f3ff5']}
             start={{ x: 0, y: 0 }}

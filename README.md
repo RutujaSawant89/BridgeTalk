@@ -1,20 +1,26 @@
 # 🌐 BridgeTalk
 
-BridgeTalk is an Expo / React Native app that translates between 24 Indian and world languages, in four different "vibes", and explains photos of medicines, bills, forms and signs in simple words in your own language. AI runs on [Groq](https://groq.com).
+BridgeTalk is a travel companion for tourists anywhere in the world. It translates between 34 languages in four different "vibes", runs face-to-face conversations, explains photos of menus, signs, bills and medicines in your own language, and keeps an offline phrasebook and SOS card for when there's no signal. AI runs on [Groq](https://groq.com).
 
 ## 🚀 Features
 
-- **Translate**: 24 languages (English, Hindi, Marathi, Gujarati, Bengali, Tamil, Telugu, Kannada, Malayalam, Punjabi, Urdu, Odia, Assamese, Spanish, French, German, Arabic, Chinese, Japanese, Korean, Portuguese, Russian, Italian, Turkish) with a searchable language picker and a swap button.
+- **Onboarding**: three swipeable intro screens, then "I speak ___" and "I'm travelling to ___". Both are saved and used as defaults on every screen, and can be changed in Settings.
+- **Translate**: 34 languages (English, Hindi, Marathi, Gujarati, Bengali, Tamil, Telugu, Kannada, Malayalam, Punjabi, Urdu, Odia, Assamese, Spanish, French, German, Arabic, Chinese, Japanese, Korean, Portuguese, Russian, Italian, Turkish, Thai, Vietnamese, Indonesian, Dutch, Greek, Polish, Swahili, Hebrew, Malay, Filipino) with a searchable language picker and a swap button.
   - One request returns **all four vibes** at once, so switching vibes is instant.
   - Native-script translation plus a 🗣 romanised pronunciation.
-  - 🔊 **Listen** (text-to-speech in the right locale) and 📤 **Share**.
+  - 🔊 **Listen** (text-to-speech in the right locale), ⭐ **Save**, and 🖼️ **Share** as an image card with "Translated with BridgeTalk" at the bottom.
   - 💡 **Culture bite**: a short fun fact about the language or phrase.
+  - 🗓️ **Phrase of the day** in your travel language, with a 🔥 daily streak.
 - **Scan**: take or pick a photo and get it explained in the language you choose.
   - 💊 **Medicine**: what it is, dose *only as printed* (never guessed), expiry, warnings, plus a reminder to check with a doctor or pharmacist.
   - 📄 **Bill / Form**: amount, deadline, next steps, and alerts for penalties or possible scams.
   - 🪧 **Sign / Menu** and 🔍 **Anything**.
   - "Read it to me" voice playback, and tips for a better photo when the image is unreadable.
 - **Talk**: face-to-face voice translator for a phone lying flat between two people. Each person gets their own half of the screen (the top half is upside down for the person opposite), taps the mic, speaks, and the other person hears and reads the translation in the chosen vibe. 💬 history keeps the whole conversation.
+- **Phrasebook** (works offline): 40 essential phrases in 6 categories (Greetings, Food, Transport, Shopping, Hotel, Emergency) for 12 top travel languages (Spanish, French, Italian, German, Portuguese, Japanese, Chinese, Korean, Thai, Arabic, Turkish, Hindi). Each comes with pronunciation, 🔊 Listen, and a 📢 "Show to local" full-screen big-text mode.
+- **🆘 SOS card**: a full-screen red card saying "I need help", "Please call an ambulance", your allergies and your hotel address in the local language. It works offline for the 12 phrasebook languages; other languages and your allergy list are translated once when you're online, then cached.
+- **Saved & History**: star any translation and search your last 200 translations and conversations (starred ones are never dropped).
+- **Haptics** on mic start/stop and successful translations; an offline banner; loading skeletons and empty states; accessibility labels on every button.
 - **Proxy server** (`server/`) so the Groq API key never has to ship inside the app.
 
 ## 🎭 Vibes
@@ -94,7 +100,7 @@ npx expo run:android          # build and run a dev client on a device/emulator
 npx expo start                # start Metro for an existing dev client
 ```
 
-The app uses native modules (expo-audio, @react-native-community/netinfo, expo-speech, expo-image-picker, expo-image-manipulator), so it needs a **dev client or a real build**. Expo Go will not cover everything, and you must rebuild after adding native packages.
+The app uses native modules (expo-audio, @react-native-community/netinfo, AsyncStorage, expo-haptics, expo-sharing, react-native-view-shot, expo-speech, expo-image-picker, expo-image-manipulator), so it needs a **dev client or a real build**. Expo Go will not cover everything, and you must rebuild after adding native packages.
 
 ### Installable APK with EAS
 
@@ -119,7 +125,7 @@ Use the proxy URL here, never a raw Groq key.
 ## 📁 Project structure
 
 ```
-├── App.js                     # Navigation root: Landing → Home (tabs)
+├── App.js                     # Providers + root stack: Onboarding / Landing → Home (tabs), SOS, Settings
 ├── app.json                   # Expo config (incl. camera/photos permission text)
 ├── eas.json                   # EAS build profiles (apk, development, …)
 ├── .env.example               # EXPO_PUBLIC_API_URL / EXPO_PUBLIC_GROQ_API_KEY
@@ -128,26 +134,35 @@ Use the proxy URL here, never a raw Groq key.
 │   ├── server.js
 │   └── package.json
 └── src/
-    ├── index.js               # Bottom tabs: Translate, Talk, Scan
+    ├── index.js               # Bottom tabs: Translate, Talk, Scan, Phrases, Saved
     ├── landing.js             # Welcome screen
     ├── config.js              # Env vars + MODELS (text, speech, vision)
     ├── api.js                 # fetch client: chat, chatJSON, transcribe, askAboutImage
     ├── languages.js           # LANGUAGES and VIBES
     ├── translate.js           # translateAllVibes, translateOne
     ├── scan.js                # Scan modes + vision prompt
-    ├── theme.js               # Colors, gradient, radii
+    ├── errors.js / json.js    # Friendly error messages, robust JSON parsing
+    ├── prefs.js               # Saved languages, SOS details, streak (AsyncStorage)
+    ├── history.js             # Saved & history, max 200 items (AsyncStorage)
+    ├── phrasebook.js          # Offline phrasebook, phrase of the day, SOS text
+    ├── data/phrasebook.json   # 40 phrases × 12 languages, bundled with the app
+    ├── haptics.js
+    ├── theme.js               # Colors, gradient, radii, spacing
     ├── components/
     │   ├── LanguagePicker.js  # Searchable bottom-sheet language picker
-    │   ├── VibeChips.js
-    │   └── GradientButton.js
-    └── screens/
-        ├── TranslateScreen.js
-        ├── ScanScreen.js
-        └── TalkScreen.js
+    │   ├── VibeChips.js, GradientButton.js, ActionButton.js
+    │   ├── ShareCardModal.js  # Pretty image card (view-shot + expo-sharing)
+    │   ├── ShowToLocalModal.js, PhraseOfTheDay.js
+    │   ├── Skeleton.js, EmptyState.js
+    │   └── ErrorBoundary.js, OfflineBanner.js
+    ├── screens/
+    │   ├── OnboardingScreen.js, TranslateScreen.js, TalkScreen.js, ScanScreen.js
+    │   ├── PhrasebookScreen.js, SOSScreen.js, SavedScreen.js, ProfileScreen.js
+    └── __tests__/             # Jest: parsing, errors, API fallbacks, travel logic, screen smoke tests
 ```
 
 ## 📦 Tech stack
 
-React Native 0.79 · Expo SDK 53 · React Navigation (native stack + bottom tabs) · expo-audio · expo-speech · expo-image-picker · expo-image-manipulator · Lottie · Groq (`openai/gpt-oss-120b`, `whisper-large-v3-turbo`, `qwen/qwen3.8-27b`) · Express + multer proxy
+React Native 0.79 · Expo SDK 53 · React Navigation (native stack + bottom tabs) · expo-audio · expo-speech · expo-image-picker · expo-image-manipulator · expo-haptics · expo-sharing · react-native-view-shot · AsyncStorage · NetInfo · Lottie · Groq (`openai/gpt-oss-120b`, `whisper-large-v3-turbo`, `qwen/qwen3.8-27b`) · Express + multer proxy
 
 > AI output can be wrong. Always double-check medicine doses with a doctor or pharmacist, and important bills or forms with the issuer.
