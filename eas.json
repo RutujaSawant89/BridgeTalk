@@ -18,6 +18,9 @@
       "autoIncrement": true,
       "env": {
         "EXPO_PUBLIC_API_URL": "https://bridgetalk-o0xs.onrender.com"
+      },
+      "android": {
+        "buildType": "app-bundle"
       }
     },
     "apk": {

@@ -5,12 +5,12 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "dark",
     "newArchEnabled": true,
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#0E0D14"
     },
     "ios": {
       "supportsTablet": true
@@ -18,10 +18,15 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#0E0D14"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.rutujasawant.bridgetalk"
+      "package": "com.rutujasawant.bridgetalk",
+      "blockedPermissions": [
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.SYSTEM_ALERT_WINDOW"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -46,7 +51,9 @@
           "microphonePermission": "BridgeTalk uses the microphone so you can speak and have your words translated for the person you are talking to."
         }
       ],
-      "expo-font"
-    ]
+      "expo-font",
+      "expo-asset"
+    ],
+    "backgroundColor": "#0E0D14"
   }
 }
