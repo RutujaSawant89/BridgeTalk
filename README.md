@@ -19,9 +19,17 @@ BridgeTalk is a travel companion for tourists anywhere in the world. It translat
 - **Talk**: face-to-face voice translator for a phone lying flat between two people. Each person gets their own half of the screen (the top half is upside down for the person opposite), taps the mic, speaks, and the other person hears and reads the translation in the chosen vibe. 💬 history keeps the whole conversation.
 - **Phrasebook** (works offline): 40 essential phrases in 6 categories (Greetings, Food, Transport, Shopping, Hotel, Emergency) for 12 top travel languages (Spanish, French, Italian, German, Portuguese, Japanese, Chinese, Korean, Thai, Arabic, Turkish, Hindi). Each comes with pronunciation, 🔊 Listen, and a 📢 "Show to local" full-screen big-text mode.
 - **🆘 SOS card**: a full-screen red card saying "I need help", "Please call an ambulance", your allergies and your hotel address in the local language. It works offline for the 12 phrasebook languages; other languages and your allergy list are translated once when you're online, then cached.
-- **Saved & History**: star any translation and search your last 200 translations and conversations (starred ones are never dropped).
+- **Saved & History** (bookmark icon on Translate and Phrases): star any translation and search your last 200 translations and conversations (starred ones are never dropped).
 - **Haptics** on mic start/stop and successful translations; an offline banner; loading skeletons and empty states; accessibility labels on every button.
 - **Proxy server** (`server/`) so the Groq API key never has to ship inside the app.
+
+## 🎨 Design system
+
+All tokens live in [src/theme.js](src/theme.js): colors (background `#0E0D14`, surface `#1A1824`, raised `#24212F`, accent `#7C5CFF`, marigold `#FFB547`, SOS red `#B4232A`), vibe colors (formal `#6EA8FF`, casual `#3DD68C`, local `#FFB547`, filmy `#FF6FA8`), radii (16 for inputs and buttons, 20 for cards, pill chips), spacing, and a 44px minimum touch target.
+
+- **Fonts** ([src/fonts.js](src/fonts.js)): Bricolage Grotesque 800 for titles and Inter for everything else. Translations and other non-Latin text use `scriptFont()`, which picks the matching Noto Sans family (Devanagari, Bengali, Gujarati, Gurmukhi, Odia, Tamil, Telugu, Kannada, Malayalam, Arabic, Hebrew, Thai, and Noto Sans for Greek/Cyrillic). Chinese, Japanese and Korean use the phone's built-in Noto CJK fonts.
+- **Icons:** line icons from Feather (`@expo/vector-icons`).
+- **Tabs:** Translate, Talk, Scan, Phrases.
 
 ## 🎭 Vibes
 
@@ -125,7 +133,7 @@ Use the proxy URL here, never a raw Groq key.
 ## 📁 Project structure
 
 ```
-├── App.js                     # Providers + root stack: Onboarding / Landing → Home (tabs), SOS, Settings
+├── App.js                     # Providers, font loading, root stack: Onboarding / Landing → Home (tabs), Saved, SOS, Settings
 ├── app.json                   # Expo config (incl. camera/photos permission text)
 ├── eas.json                   # EAS build profiles (apk, development, …)
 ├── .env.example               # EXPO_PUBLIC_API_URL / EXPO_PUBLIC_GROQ_API_KEY
@@ -134,7 +142,7 @@ Use the proxy URL here, never a raw Groq key.
 │   ├── server.js
 │   └── package.json
 └── src/
-    ├── index.js               # Bottom tabs: Translate, Talk, Scan, Phrases, Saved
+    ├── index.js               # Bottom tabs: Translate, Talk, Scan, Phrases
     ├── landing.js             # Welcome screen
     ├── config.js              # Env vars + MODELS (text, speech, vision)
     ├── api.js                 # fetch client: chat, chatJSON, transcribe, askAboutImage
@@ -147,10 +155,11 @@ Use the proxy URL here, never a raw Groq key.
     ├── phrasebook.js          # Offline phrasebook, phrase of the day, SOS text
     ├── data/phrasebook.json   # 40 phrases × 12 languages, bundled with the app
     ├── haptics.js
-    ├── theme.js               # Colors, gradient, radii, spacing
+    ├── theme.js               # Design tokens: colors, vibe colors, fonts, scriptFont(), radii, spacing
+    ├── fonts.js               # Loads Bricolage Grotesque, Inter, Noto Sans families and Feather
     ├── components/
     │   ├── LanguagePicker.js  # Searchable bottom-sheet language picker
-    │   ├── VibeChips.js, GradientButton.js, ActionButton.js
+    │   ├── VibeChips.js, GradientButton.js, ActionButton.js, IconButton.js
     │   ├── ShareCardModal.js  # Pretty image card (view-shot + expo-sharing)
     │   ├── ShowToLocalModal.js, PhraseOfTheDay.js
     │   ├── Skeleton.js, EmptyState.js
@@ -163,6 +172,6 @@ Use the proxy URL here, never a raw Groq key.
 
 ## 📦 Tech stack
 
-React Native 0.79 · Expo SDK 53 · React Navigation (native stack + bottom tabs) · expo-audio · expo-speech · expo-image-picker · expo-image-manipulator · expo-haptics · expo-sharing · react-native-view-shot · AsyncStorage · NetInfo · Lottie · Groq (`openai/gpt-oss-120b`, `whisper-large-v3-turbo`, `qwen/qwen3.8-27b`) · Express + multer proxy
+React Native 0.79 · Expo SDK 53 · React Navigation (native stack + bottom tabs) · expo-audio · expo-speech · expo-image-picker · expo-image-manipulator · expo-font + Google Fonts (Bricolage Grotesque, Inter, Noto Sans) · Feather icons · expo-haptics · expo-sharing · react-native-view-shot · AsyncStorage · NetInfo · Lottie · Groq (`openai/gpt-oss-120b`, `whisper-large-v3-turbo`, `qwen/qwen3.8-27b`) · Express + multer proxy
 
 > AI output can be wrong. Always double-check medicine doses with a doctor or pharmacist, and important bills or forms with the issuer.

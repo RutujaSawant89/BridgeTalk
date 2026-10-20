@@ -151,3 +151,18 @@ it.each([
   const tree = await render(<Screen navigation={navigation} />, { onboarded: true });
   expect(tree.toJSON()).toBeTruthy();
 });
+
+it('translate shows the 4 vibes as a grid and the bookmark opens Saved', async () => {
+  const tree = await render(<TranslateScreen navigation={navigation} />, { onboarded: true });
+  const vibes = tree.root.findAll((n) => typeof n.props.accessibilityLabel === 'string' && n.props.accessibilityLabel.endsWith(' vibe') && n.props.onPress);
+  // Each touchable shows up twice (component + host view), so compare the distinct labels
+  expect([...new Set(vibes.map((v) => v.props.accessibilityLabel))]).toEqual(['Formal vibe', 'Casual vibe', 'Like a local vibe', 'Filmy vibe']);
+  const bookmark = tree.root.find((n) => n.props.accessibilityLabel === 'Saved translations and history' && n.props.onPress);
+  await act(async () => bookmark.props.onPress());
+  expect(navigation.navigate).toHaveBeenCalledWith('Saved');
+});
+
+it('the tab bar has exactly Translate, Talk, Scan and Phrases', () => {
+  const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'index.js'), 'utf8');
+  expect([...src.matchAll(/<Tab\.Screen name="(\w+)"/g)].map((m) => m[1])).toEqual(['Translate', 'Talk', 'Scan', 'Phrases']);
+});

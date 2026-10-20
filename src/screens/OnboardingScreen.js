@@ -1,32 +1,41 @@
 import React, { useRef, useState } from 'react';
 import { View, Text, FlatList, TouchableOpacity, useWindowDimensions, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Feather } from '@expo/vector-icons';
 import LanguagePicker from '../components/LanguagePicker';
 import GradientButton from '../components/GradientButton';
 import { usePrefs } from '../prefs';
-import { colors, radius, space } from '../theme';
+import { colors, fonts, icon, radius, space, touch } from '../theme';
 
 const SLIDES = [
   {
     key: 'translate',
-    emoji: '🌐',
+    icon: 'globe',
     title: 'Translate with a vibe',
     body: 'Type anything and get it formal, casual, like a local or straight out of a movie, with pronunciation to say it right.',
   },
   {
     key: 'talk',
-    emoji: '🎙️',
+    icon: 'mic',
     title: 'Talk face to face',
     body: 'Put the phone between you and a local. Each of you taps your mic, and BridgeTalk speaks the translation out loud.',
   },
   {
     key: 'scan',
-    emoji: '📷',
+    icon: 'camera',
     title: 'Scan menus, signs & bills',
     body: 'Point your camera at a menu, sign, bill or medicine and get it explained in your own language, in simple words.',
   },
-  { key: 'setup' },
+  { key: 'setup', icon: 'send', title: 'Where are you headed?' },
 ];
+
+function Hero({ name }) {
+  return (
+    <View style={styles.hero}>
+      <Feather name={name} size={icon.hero} color={colors.accent} />
+    </View>
+  );
+}
 
 export default function OnboardingScreen({ navigation }) {
   const { prefs, update } = usePrefs();
@@ -52,8 +61,8 @@ export default function OnboardingScreen({ navigation }) {
     if (item.key === 'setup') {
       return (
         <View style={[styles.slide, { width }]}>
-          <Text style={styles.emoji}>✈️</Text>
-          <Text style={styles.title}>Where are you headed?</Text>
+          <Hero name={item.icon} />
+          <Text style={styles.title}>{item.title}</Text>
           <Text style={styles.body}>We'll use these everywhere in the app. You can change them any time in Settings.</Text>
           <View style={styles.field}>
             <Text style={styles.fieldLabel}>I speak</Text>
@@ -72,7 +81,7 @@ export default function OnboardingScreen({ navigation }) {
     }
     return (
       <View style={[styles.slide, { width }]}>
-        <Text style={styles.emoji}>{item.emoji}</Text>
+        <Hero name={item.icon} />
         <Text style={styles.title}>{item.title}</Text>
         <Text style={styles.body}>{item.body}</Text>
       </View>
@@ -86,8 +95,8 @@ export default function OnboardingScreen({ navigation }) {
           BridgeTalk<Text style={{ color: colors.accent }}>.</Text>
         </Text>
         {index < last ? (
-          <TouchableOpacity onPress={() => goTo(last)} accessibilityRole="button" accessibilityLabel="Skip intro" hitSlop={10}>
-            <Text style={styles.skip}>Skip</Text>
+          <TouchableOpacity style={styles.skip} onPress={() => goTo(last)} accessibilityRole="button" accessibilityLabel="Skip intro">
+            <Text style={styles.skipText}>Skip</Text>
           </TouchableOpacity>
         ) : null}
       </View>
@@ -112,9 +121,9 @@ export default function OnboardingScreen({ navigation }) {
           ))}
         </View>
         {index < last ? (
-          <GradientButton title="Next" onPress={() => goTo(index + 1)} />
+          <GradientButton title="Next" icon="arrow-right" onPress={() => goTo(index + 1)} />
         ) : (
-          <GradientButton title="Let's go 🚀" onPress={finish} accessibilityLabel="Finish setup and start using BridgeTalk" />
+          <GradientButton title="Let's go" icon="check" onPress={finish} accessibilityLabel="Finish setup and start using BridgeTalk" />
         )}
       </View>
     </SafeAreaView>
@@ -123,15 +132,16 @@ export default function OnboardingScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.bg },
-  topBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: space.xl, paddingVertical: space.md },
-  brand: { color: colors.text, fontSize: 22, fontWeight: 'bold', fontFamily: 'monospace' },
-  skip: { color: colors.textMuted, fontSize: 16 },
+  topBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: space.xl, paddingVertical: space.sm },
+  brand: { color: colors.text, fontSize: 24, fontFamily: fonts.display, letterSpacing: -0.5 },
+  skip: { minHeight: touch, minWidth: touch, alignItems: 'flex-end', justifyContent: 'center' },
+  skipText: { color: colors.muted, fontSize: 16, fontFamily: fonts.medium },
   slide: { flex: 1, paddingHorizontal: space.xxl, justifyContent: 'center', gap: space.lg },
-  emoji: { fontSize: 72, textAlign: 'center' },
-  title: { color: colors.text, fontSize: 28, fontWeight: '800', textAlign: 'center' },
-  body: { color: colors.textMuted, fontSize: 17, lineHeight: 25, textAlign: 'center' },
+  hero: { alignSelf: 'center', width: 112, height: 112, borderRadius: 56, backgroundColor: colors.raised, alignItems: 'center', justifyContent: 'center', marginBottom: space.sm },
+  title: { color: colors.text, fontSize: 32, fontFamily: fonts.display, textAlign: 'center', letterSpacing: -0.5, lineHeight: 38 },
+  body: { color: colors.muted, fontSize: 17, fontFamily: fonts.regular, lineHeight: 25, textAlign: 'center' },
   field: { gap: space.sm },
-  fieldLabel: { color: colors.textMuted, fontSize: 14, fontWeight: '600' },
+  fieldLabel: { color: colors.muted, fontSize: 14, fontFamily: fonts.medium },
   pickerRow: { flexDirection: 'row' },
   bottom: { padding: space.xl, gap: space.lg },
   dots: { flexDirection: 'row', justifyContent: 'center', gap: space.sm },

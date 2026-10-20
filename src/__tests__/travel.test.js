@@ -119,3 +119,29 @@ describe('languages', () => {
     expect(new Set(names).size).toBe(names.length);
   });
 });
+
+describe('scriptFont', () => {
+  const { scriptFont, fonts } = require('../theme');
+  it.each([
+    ['Hello', 'regular', fonts.regular],
+    ['Hello', 'bold', fonts.bold],
+    ['नमस्ते', 'regular', 'NotoSansDevanagari_400Regular'],
+    ['नमस्ते', 'semibold', 'NotoSansDevanagari_700Bold'],
+    ['வணக்கம்', 'bold', 'NotoSansTamil_700Bold'],
+    ['ਸਤ ਸ੍ਰੀ ਅਕਾਲ', 'regular', 'NotoSansGurmukhi_400Regular'],
+    ['ଓଡ଼ିଆ', 'regular', 'NotoSansOriya_400Regular'],
+    ['مرحبا', 'regular', 'NotoSansArabic_400Regular'],
+    ['שלום', 'regular', 'NotoSansHebrew_400Regular'],
+    ['สวัสดี', 'bold', 'NotoSansThai_700Bold'],
+    ['Привет', 'regular', 'NotoSans_400Regular'],
+    ['Γειά σου', 'bold', 'NotoSans_700Bold'],
+  ])('%s (%s) uses %s', (text, weight, family) => {
+    expect(scriptFont(text, weight).fontFamily).toBe(family);
+  });
+  it.each(['你好', 'こんにちは', '안녕하세요'])('%s falls back to the system CJK font', (text) => {
+    expect(scriptFont(text, 'bold')).toEqual({ fontFamily: undefined, fontWeight: '700' });
+  });
+  it('picks the script of mixed text like Hinglish in Devanagari', () => {
+    expect(scriptFont('यार, मैं बहुत hungry हूँ').fontFamily).toBe('NotoSansDevanagari_400Regular');
+  });
+});

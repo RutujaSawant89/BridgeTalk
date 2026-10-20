@@ -12,10 +12,13 @@ import {
   StyleSheet,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Feather } from '@expo/vector-icons';
 import { useAudioRecorder, RecordingPresets, requestRecordingPermissionsAsync, setAudioModeAsync } from 'expo-audio';
 import * as Speech from 'expo-speech';
 import LanguagePicker from '../components/LanguagePicker';
 import VibeChips from '../components/VibeChips';
+import IconButton from '../components/IconButton';
+import EmptyState from '../components/EmptyState';
 import { getLanguage } from '../languages';
 import { transcribe } from '../api';
 import { translateOne } from '../translate';
@@ -23,9 +26,9 @@ import { friendlyMessage } from '../errors';
 import { usePrefs } from '../prefs';
 import { useHistory } from '../history';
 import * as haptics from '../haptics';
-import { colors, radius } from '../theme';
+import { colors, fonts, icon, radius, scriptFont, sos, space, touch } from '../theme';
 
-const RED = '#ff3b5c';
+const RECORDING = sos.bg;
 
 function speak(text, languageName) {
   if (!text) return;
@@ -70,7 +73,7 @@ function MicButton({ recording, disabled, onPress }) {
           accessibilityRole="button"
           accessibilityLabel={recording ? 'Stop recording' : 'Start recording'}
         >
-          <Text style={styles.micIcon}>{recording ? '⏹' : '🎙️'}</Text>
+          <Feather name={recording ? 'square' : 'mic'} size={icon.xl} color={colors.onAccent} />
         </TouchableOpacity>
       </Animated.View>
     </View>
@@ -97,13 +100,17 @@ function Half({ side, language, onLanguageChange, heard, said, recording, micDis
           </View>
         ) : heard ? (
           <TouchableOpacity
+            style={styles.replay}
             onPress={() => speak(heard, language)}
             accessibilityRole="button"
             accessibilityLabel={`Replay: ${heard}`}
             accessibilityHint="Plays the translation again"
           >
-            <Text style={styles.heard}>{heard}</Text>
-            <Text style={styles.replayHint}>🔊 Tap to replay</Text>
+            <Text style={[styles.heard, scriptFont(heard, 'bold')]}>{heard}</Text>
+            <View style={styles.replayRow}>
+              <Feather name="volume-2" size={icon.sm - 2} color={colors.muted} />
+              <Text style={styles.replayHint}>Tap to replay</Text>
+            </View>
           </TouchableOpacity>
         ) : (
           <Text style={styles.placeholder}>
@@ -111,7 +118,7 @@ function Half({ side, language, onLanguageChange, heard, said, recording, micDis
           </Text>
         )}
         {said && !busy ? (
-          <Text style={styles.said} numberOfLines={2}>
+          <Text style={[styles.said, scriptFont(said)]} numberOfLines={2}>
             You said: {said}
           </Text>
         ) : null}
@@ -250,10 +257,14 @@ export default function TalkScreen() {
         <View style={styles.chips}>
           <VibeChips value={vibeId} onChange={setVibeId} />
         </View>
-        <TouchableOpacity style={styles.historyBtn} onPress={() => setHistoryOpen(true)} accessibilityLabel="Open history">
-          <Text style={styles.historyIcon}>💬</Text>
-          {history.length ? <Text style={styles.badge}>{history.length}</Text> : null}
-        </TouchableOpacity>
+        <View>
+          <IconButton name="message-circle" onPress={() => setHistoryOpen(true)} accessibilityLabel="Open conversation history" background={colors.raised} />
+          {history.length ? (
+            <Text style={styles.badge} pointerEvents="none">
+              {history.length}
+            </Text>
+          ) : null}
+        </View>
       </View>
 
       <Half {...halfProps('bottom')} />
@@ -263,10 +274,10 @@ export default function TalkScreen() {
           <View style={styles.historyHeader}>
             <Text style={styles.historyTitle}>Conversation</Text>
             <View style={styles.historyActions}>
-              <TouchableOpacity onPress={clearHistory} disabled={!history.length} accessibilityRole="button" accessibilityLabel="Clear conversation" hitSlop={8}>
+              <TouchableOpacity style={styles.textBtn} onPress={clearHistory} disabled={!history.length} accessibilityRole="button" accessibilityLabel="Clear conversation">
                 <Text style={[styles.clear, !history.length && styles.disabledText]}>Clear</Text>
               </TouchableOpacity>
-              <TouchableOpacity onPress={() => setHistoryOpen(false)} accessibilityRole="button" accessibilityLabel="Close conversation" hitSlop={8}>
+              <TouchableOpacity style={styles.textBtn} onPress={() => setHistoryOpen(false)} accessibilityRole="button" accessibilityLabel="Close conversation">
                 <Text style={styles.done}>Done</Text>
               </TouchableOpacity>
             </View>
@@ -276,7 +287,7 @@ export default function TalkScreen() {
             inverted={history.length > 0}
             keyExtractor={(m) => m.id}
             contentContainerStyle={styles.historyList}
-            ListEmptyComponent={<Text style={styles.empty}>No messages yet. Tap a mic to start talking.</Text>}
+            ListEmptyComponent={<EmptyState icon="message-circle" title="No messages yet" message="Tap a mic to start talking." />}
             renderItem={({ item }) => {
               const mine = item.speaker === 'bottom';
               return (
@@ -290,10 +301,13 @@ export default function TalkScreen() {
                   <Text style={styles.bubbleMeta}>
                     {getLanguage(item.fromLang)?.flag} {item.fromLang} → {getLanguage(item.toLang)?.flag} {item.toLang}
                   </Text>
-                  <Text style={styles.bubbleOriginal}>{item.original}</Text>
-                  <Text style={styles.bubbleTranslation}>{item.translation}</Text>
-                  {item.pronunciation ? <Text style={styles.bubblePron}>🗣 {item.pronunciation}</Text> : null}
-                  <Text style={styles.replayHint}>🔊 Tap to replay</Text>
+                  <Text style={[styles.bubbleOriginal, scriptFont(item.original)]}>{item.original}</Text>
+                  <Text style={[styles.bubbleTranslation, scriptFont(item.translation, 'semibold')]}>{item.translation}</Text>
+                  {item.pronunciation ? <Text style={styles.bubblePron}>{item.pronunciation}</Text> : null}
+                  <View style={styles.replayRow}>
+                    <Feather name="volume-2" size={icon.sm - 2} color={colors.onAccentSoft} />
+                    <Text style={[styles.replayHint, styles.bubbleReplay]}>Tap to replay</Text>
+                  </View>
                 </TouchableOpacity>
               );
             }}
@@ -306,61 +320,53 @@ export default function TalkScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.bg },
-  half: { flex: 1, padding: 16, justifyContent: 'space-between', alignItems: 'center' },
+  half: { flex: 1, padding: space.lg, justifyContent: 'space-between', alignItems: 'center' },
   rotated: { transform: [{ rotate: '180deg' }] },
-  halfHeader: { flexDirection: 'row', width: '70%' },
-  messageArea: { flex: 1, width: '100%', justifyContent: 'center', alignItems: 'center', paddingVertical: 8, gap: 8 },
-  heard: { color: colors.text, fontSize: 28, fontWeight: '700', textAlign: 'center', lineHeight: 38 },
-  replayHint: { color: colors.textMuted, fontSize: 12, textAlign: 'center', marginTop: 4 },
-  placeholder: { color: colors.textMuted, fontSize: 17, textAlign: 'center' },
-  said: { color: colors.textMuted, fontSize: 14, textAlign: 'center', fontStyle: 'italic' },
-  busy: { alignItems: 'center', gap: 8 },
-  busyText: { color: colors.textMuted, fontSize: 16 },
-  micWrap: { width: 96, height: 96, alignItems: 'center', justifyContent: 'center' },
-  micRing: { position: 'absolute', width: 84, height: 84, borderRadius: 42, backgroundColor: RED },
+  halfHeader: { flexDirection: 'row', width: '72%' },
+  messageArea: { flex: 1, width: '100%', justifyContent: 'center', alignItems: 'center', paddingVertical: space.sm, gap: space.sm },
+  replay: { minHeight: touch, justifyContent: 'center' },
+  heard: { color: colors.text, fontSize: 28, textAlign: 'center', lineHeight: 38 },
+  replayRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, marginTop: space.xs },
+  replayHint: { color: colors.muted, fontSize: 12, fontFamily: fonts.medium, textAlign: 'center' },
+  placeholder: { color: colors.muted, fontSize: 17, fontFamily: fonts.regular, textAlign: 'center' },
+  said: { color: colors.muted, fontSize: 14, textAlign: 'center' },
+  busy: { alignItems: 'center', gap: space.sm },
+  busyText: { color: colors.muted, fontSize: 16, fontFamily: fonts.medium },
+  micWrap: { width: 104, height: 104, alignItems: 'center', justifyContent: 'center' },
+  micRing: { position: 'absolute', width: 88, height: 88, borderRadius: 44, backgroundColor: RECORDING },
   mic: {
-    width: 84,
-    height: 84,
-    borderRadius: 42,
+    width: 88,
+    height: 88,
+    borderRadius: 44,
     backgroundColor: colors.accent,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  micRecording: { backgroundColor: RED },
+  micRecording: { backgroundColor: RECORDING },
   micDisabled: { opacity: 0.35 },
-  micIcon: { fontSize: 34, color: '#fff' },
   middle: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    backgroundColor: colors.card,
+    gap: space.sm,
+    paddingHorizontal: space.md,
+    paddingVertical: space.sm,
+    backgroundColor: colors.surface,
     borderTopWidth: 1,
     borderBottomWidth: 1,
     borderColor: colors.border,
   },
   chips: { flex: 1 },
-  historyBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: colors.cardAlt,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  historyIcon: { fontSize: 20 },
   badge: {
     position: 'absolute',
-    top: -2,
-    right: -2,
-    minWidth: 18,
-    paddingHorizontal: 4,
-    borderRadius: 9,
-    backgroundColor: colors.accent,
-    color: '#fff',
+    top: -4,
+    right: -4,
+    minWidth: 20,
+    paddingHorizontal: 5,
+    borderRadius: radius.pill,
+    backgroundColor: colors.marigold,
+    color: colors.onVibe,
     fontSize: 11,
-    fontWeight: '700',
+    fontFamily: fonts.bold,
     textAlign: 'center',
     overflow: 'hidden',
   },
@@ -369,22 +375,24 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 16,
+    paddingHorizontal: space.lg,
+    paddingVertical: space.sm,
     borderBottomWidth: 1,
     borderColor: colors.border,
   },
-  historyTitle: { color: colors.text, fontSize: 20, fontWeight: '700' },
-  historyActions: { flexDirection: 'row', gap: 20 },
-  clear: { color: colors.error, fontSize: 16, fontWeight: '600' },
+  historyTitle: { color: colors.text, fontSize: 24, fontFamily: fonts.display },
+  historyActions: { flexDirection: 'row', gap: space.sm },
+  textBtn: { minHeight: touch, minWidth: touch, paddingHorizontal: space.sm, alignItems: 'center', justifyContent: 'center' },
+  clear: { color: colors.error, fontSize: 16, fontFamily: fonts.semibold },
   disabledText: { opacity: 0.4 },
-  done: { color: colors.accent, fontSize: 16, fontWeight: '700' },
-  historyList: { padding: 16, gap: 12, flexGrow: 1 },
-  empty: { color: colors.textMuted, textAlign: 'center', marginTop: 40, fontSize: 15 },
-  bubble: { maxWidth: '85%', borderRadius: radius.md, padding: 12, gap: 4 },
-  bubbleMine: { alignSelf: 'flex-end', backgroundColor: colors.accent, borderBottomRightRadius: 4 },
-  bubbleTheirs: { alignSelf: 'flex-start', backgroundColor: colors.cardAlt, borderBottomLeftRadius: 4 },
-  bubbleMeta: { color: 'rgba(255,255,255,0.7)', fontSize: 11 },
-  bubbleOriginal: { color: 'rgba(255,255,255,0.8)', fontSize: 14 },
-  bubbleTranslation: { color: '#fff', fontSize: 18, fontWeight: '600' },
-  bubblePron: { color: 'rgba(255,255,255,0.75)', fontSize: 13, fontStyle: 'italic' },
+  done: { color: colors.accent, fontSize: 16, fontFamily: fonts.bold },
+  historyList: { padding: space.lg, gap: space.md, flexGrow: 1 },
+  bubble: { maxWidth: '85%', borderRadius: radius.card, padding: space.md + 2, gap: 4 },
+  bubbleMine: { alignSelf: 'flex-end', backgroundColor: colors.accent, borderBottomRightRadius: 6 },
+  bubbleTheirs: { alignSelf: 'flex-start', backgroundColor: colors.raised, borderBottomLeftRadius: 6 },
+  bubbleMeta: { color: colors.onAccentSoft, fontSize: 11, fontFamily: fonts.medium },
+  bubbleOriginal: { color: colors.onAccentSoft, fontSize: 14 },
+  bubbleTranslation: { color: colors.onAccent, fontSize: 18 },
+  bubblePron: { color: colors.onAccentSoft, fontSize: 13, fontFamily: fonts.regular },
+  bubbleReplay: { color: colors.onAccentSoft },
 });

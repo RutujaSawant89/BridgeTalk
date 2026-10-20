@@ -1,14 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Feather } from '@expo/vector-icons';
 import * as Speech from 'expo-speech';
 import LanguagePicker from '../components/LanguagePicker';
+import IconButton from '../components/IconButton';
 import { chatJSON } from '../api';
 import { sosText } from '../phrasebook';
 import { getLanguage } from '../languages';
 import { loadJSON, saveJSON } from '../storage';
 import { usePrefs } from '../prefs';
-import { radius, space, sos } from '../theme';
+import { fonts, icon, radius, scriptFont, space, sos, touch } from '../theme';
 
 const ENGLISH = sosText('English');
 const cacheKey = (language) => `bridgetalk:sos:${language}`;
@@ -103,14 +105,15 @@ export default function SOSScreen({ navigation }) {
         <View style={styles.pickerWrap}>
           <LanguagePicker label="SOS language" value={language} onChange={setLanguage} />
         </View>
-        <TouchableOpacity style={styles.close} onPress={() => navigation.goBack()} accessibilityRole="button" accessibilityLabel="Close SOS card" hitSlop={10}>
-          <Text style={styles.closeText}>✕</Text>
-        </TouchableOpacity>
+        <IconButton name="x" onPress={() => navigation.goBack()} accessibilityLabel="Close SOS card" background={sos.bgDark} color={sos.text} />
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
-        <Text style={styles.badge}>🆘 EMERGENCY</Text>
-        {loading ? <ActivityIndicator color="#fff" accessibilityLabel="Translating" /> : null}
+        <View style={styles.badgeRow}>
+          <Feather name="alert-triangle" size={icon.md} color={sos.soft} />
+          <Text style={styles.badge}>EMERGENCY</Text>
+          {loading ? <ActivityIndicator color={sos.text} accessibilityLabel="Translating" /> : null}
+        </View>
 
         <Line text={shown.help} english={ENGLISH.help} big />
         <Line text={shown.ambulance} english={ENGLISH.ambulance} big />
@@ -121,30 +124,38 @@ export default function SOSScreen({ navigation }) {
 
         {prefs.address ? (
           <View style={styles.block}>
-            <Text style={styles.line}>{shown.address}</Text>
-            <Text style={styles.address} selectable>
+            <Text style={[styles.line, scriptFont(shown.address, 'bold')]}>{shown.address}</Text>
+            <Text style={[styles.address, scriptFont(prefs.address, 'bold')]} selectable>
               {prefs.address}
             </Text>
             <Text style={styles.english}>{ENGLISH.address}</Text>
           </View>
         ) : null}
 
-        {notice ? <Text style={styles.notice}>{notice}</Text> : null}
+        {notice ? (
+          <View style={styles.notice}>
+            <Feather name="wifi-off" size={icon.sm + 2} color={sos.text} />
+            <Text style={styles.noticeText}>{notice}</Text>
+          </View>
+        ) : null}
 
         {missingDetails ? (
           <TouchableOpacity style={styles.addBtn} onPress={() => navigation.navigate('Profile')} accessibilityRole="button" accessibilityLabel="Add your allergies and hotel address">
-            <Text style={styles.addText}>➕ Add {!prefs.allergies && !prefs.address ? 'your allergies and hotel address' : !prefs.allergies ? 'your allergies' : 'your hotel address'}</Text>
+            <Feather name="plus-circle" size={icon.md} color={sos.text} />
+            <Text style={styles.addText}>Add {!prefs.allergies && !prefs.address ? 'your allergies and hotel address' : !prefs.allergies ? 'your allergies' : 'your hotel address'}</Text>
           </TouchableOpacity>
         ) : null}
       </ScrollView>
 
       <View style={styles.bottom}>
         <TouchableOpacity style={styles.bigBtn} onPress={readAloud} accessibilityRole="button" accessibilityLabel="Read the SOS card aloud">
-          <Text style={styles.bigBtnText}>🔊 Read aloud</Text>
+          <Feather name="volume-2" size={icon.lg} color={sos.bg} />
+          <Text style={styles.bigBtnText}>Read aloud</Text>
         </TouchableOpacity>
         {!missingDetails ? (
           <TouchableOpacity style={styles.editBtn} onPress={() => navigation.navigate('Profile')} accessibilityRole="button" accessibilityLabel="Edit allergies and address">
-            <Text style={styles.editText}>✏️ Edit</Text>
+            <Feather name="edit-2" size={icon.md} color={sos.text} />
+            <Text style={styles.editText}>Edit</Text>
           </TouchableOpacity>
         ) : null}
       </View>
@@ -155,7 +166,7 @@ export default function SOSScreen({ navigation }) {
 function Line({ text, english, big }) {
   return (
     <View style={styles.block}>
-      <Text style={[styles.line, big && styles.lineBig]}>{text}</Text>
+      <Text style={[styles.line, big && styles.lineBig, scriptFont(text, 'bold')]}>{text}</Text>
       {english && english !== text ? <Text style={styles.english}>{english}</Text> : null}
     </View>
   );
@@ -165,21 +176,32 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: sos.bg },
   top: { flexDirection: 'row', alignItems: 'center', gap: space.md, padding: space.lg },
   pickerWrap: { flex: 1, flexDirection: 'row' },
-  close: { width: 44, height: 44, borderRadius: 22, backgroundColor: sos.bgDark, alignItems: 'center', justifyContent: 'center' },
-  closeText: { color: '#fff', fontSize: 20, fontWeight: '700' },
   content: { padding: space.xl, gap: space.xl },
-  badge: { color: '#ffd5db', fontSize: 15, fontWeight: '900', letterSpacing: 2 },
+  badgeRow: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
+  badge: { color: sos.soft, fontSize: 15, fontFamily: fonts.bold, letterSpacing: 2 },
   block: { gap: space.xs },
-  line: { color: sos.text, fontSize: 26, fontWeight: '800', lineHeight: 34 },
-  lineBig: { fontSize: 34, lineHeight: 44 },
-  address: { color: sos.text, fontSize: 24, fontWeight: '700', backgroundColor: sos.bgDark, borderRadius: radius.sm, padding: space.md, marginTop: space.xs },
-  english: { color: '#ffd5db', fontSize: 15 },
-  notice: { color: '#fff', backgroundColor: sos.bgDark, borderRadius: radius.sm, padding: space.md, fontSize: 14 },
-  addBtn: { borderWidth: 2, borderColor: '#fff', borderStyle: 'dashed', borderRadius: radius.md, padding: space.lg, alignItems: 'center' },
-  addText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  line: { color: sos.text, fontSize: 26, lineHeight: 36 },
+  lineBig: { fontSize: 34, lineHeight: 46 },
+  address: { color: sos.text, fontSize: 24, backgroundColor: sos.bgDark, borderRadius: radius.md, padding: space.lg, marginTop: space.xs, overflow: 'hidden' },
+  english: { color: sos.soft, fontSize: 15, fontFamily: fonts.regular },
+  notice: { flexDirection: 'row', gap: space.sm, backgroundColor: sos.bgDark, borderRadius: radius.md, padding: space.md },
+  noticeText: { flex: 1, color: sos.text, fontSize: 14, fontFamily: fonts.regular, lineHeight: 20 },
+  addBtn: {
+    minHeight: 56,
+    flexDirection: 'row',
+    gap: space.sm,
+    borderWidth: 2,
+    borderColor: sos.text,
+    borderStyle: 'dashed',
+    borderRadius: radius.card,
+    padding: space.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  addText: { color: sos.text, fontSize: 16, fontFamily: fonts.semibold, flexShrink: 1 },
   bottom: { flexDirection: 'row', gap: space.md, padding: space.lg },
-  bigBtn: { flex: 1, backgroundColor: '#fff', borderRadius: radius.pill, paddingVertical: space.lg, alignItems: 'center' },
-  bigBtnText: { color: sos.bg, fontSize: 18, fontWeight: '800' },
-  editBtn: { backgroundColor: sos.bgDark, borderRadius: radius.pill, paddingVertical: space.lg, paddingHorizontal: space.xl, alignItems: 'center' },
-  editText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  bigBtn: { flex: 1, minHeight: 56, flexDirection: 'row', gap: space.sm, backgroundColor: sos.text, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center' },
+  bigBtnText: { color: sos.bg, fontSize: 18, fontFamily: fonts.bold },
+  editBtn: { minHeight: 56, minWidth: touch * 2, flexDirection: 'row', gap: space.sm, backgroundColor: sos.bgDark, borderRadius: radius.md, paddingHorizontal: space.xl, alignItems: 'center', justifyContent: 'center' },
+  editText: { color: sos.text, fontSize: 16, fontFamily: fonts.semibold },
 });

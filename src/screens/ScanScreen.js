@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, Image, Switch, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Feather } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import * as Speech from 'expo-speech';
@@ -11,7 +12,7 @@ import { friendlyMessage } from '../errors';
 import { SkeletonCard } from '../components/Skeleton';
 import { usePrefs } from '../prefs';
 import * as haptics from '../haptics';
-import { colors, radius } from '../theme';
+import { colors, fonts, icon as iconSize, radius, scriptFont, space, touch } from '../theme';
 
 const MAX_SIDE = 1400;
 
@@ -26,17 +27,19 @@ async function prepareImage(asset) {
   return { uri: saved.uri, base64: saved.base64 };
 }
 
-function Section({ icon, title, items, color = colors.text }) {
+function Section({ icon, title, items, color = colors.text, iconColor = colors.accent }) {
   if (!items.length) return null;
   return (
     <View style={styles.section}>
-      <Text style={styles.sectionTitle}>
-        {icon} {title}
-      </Text>
+      <View style={styles.sectionHeader}>
+        <Feather name={icon} size={iconSize.sm + 2} color={iconColor} />
+        <Text style={styles.sectionTitle}>{title}</Text>
+      </View>
       {items.map((item, i) => (
-        <Text key={i} style={[styles.bullet, { color }]}>
-          • {item}
-        </Text>
+        <View key={i} style={styles.bulletRow}>
+          <View style={[styles.bulletDot, { backgroundColor: iconColor }]} />
+          <Text style={[styles.bullet, scriptFont(item), { color }]}>{item}</Text>
+        </View>
       ))}
     </View>
   );
@@ -116,7 +119,9 @@ export default function ScanScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <ScrollView contentContainerStyle={styles.content}>
-        <Text style={styles.title}>Scan & explain</Text>
+        <Text style={styles.title} accessibilityRole="header">
+          Scan & explain
+        </Text>
 
         <View style={styles.modes}>
           {SCAN_MODES.map((mode) => {
@@ -130,7 +135,9 @@ export default function ScanScreen() {
                 accessibilityRole="button"
                 accessibilityState={{ selected: active }}
               >
-                <Text style={styles.modeEmoji}>{mode.emoji}</Text>
+                <View style={[styles.modeIcon, active && styles.modeIconActive]}>
+                  <Feather name={mode.icon} size={iconSize.md} color={active ? colors.onAccent : colors.accent} />
+                </View>
                 <Text style={styles.modeLabel}>{mode.label}</Text>
                 <Text style={styles.modeHint}>{mode.hint}</Text>
               </TouchableOpacity>
@@ -145,14 +152,16 @@ export default function ScanScreen() {
 
         <View style={styles.buttons}>
           <TouchableOpacity style={[styles.sourceBtn, styles.cameraBtn]} onPress={() => pick('camera')} disabled={loading} accessibilityRole="button" accessibilityLabel="Take a photo with the camera" accessibilityState={{ disabled: loading }}>
-            <Text style={styles.sourceText}>📸 Camera</Text>
+            <Feather name="camera" size={iconSize.md} color={colors.onAccent} />
+            <Text style={styles.sourceText}>Camera</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.sourceBtn} onPress={() => pick('gallery')} disabled={loading} accessibilityRole="button" accessibilityLabel="Choose a photo from the gallery" accessibilityState={{ disabled: loading }}>
-            <Text style={styles.sourceText}>🖼️ Gallery</Text>
+            <Feather name="image" size={iconSize.md} color={colors.text} />
+            <Text style={styles.sourceText}>Gallery</Text>
           </TouchableOpacity>
         </View>
 
-        {photo ? <Image source={{ uri: photo }} style={styles.preview} resizeMode="cover" /> : null}
+        {photo ? <Image source={{ uri: photo }} style={styles.preview} resizeMode="cover" accessibilityLabel="The photo you picked" /> : null}
 
         {loading ? (
           <View style={styles.loading}>
@@ -161,46 +170,59 @@ export default function ScanScreen() {
           </View>
         ) : null}
 
-        {error ? <Text style={styles.error}>{error}</Text> : null}
+        {error ? (
+          <View style={styles.errorRow} accessibilityLiveRegion="polite">
+            <Feather name="alert-circle" size={iconSize.sm + 2} color={colors.error} />
+            <Text style={styles.error}>{error}</Text>
+          </View>
+        ) : null}
 
         {data ? (
           <View style={styles.resultCard}>
             {!data.readable ? (
-              <Text style={styles.unreadable}>📷 This photo is hard to read. Try again with these tips:</Text>
+              <View style={styles.unreadableRow}>
+                <Feather name="camera-off" size={iconSize.md} color={colors.marigold} />
+                <Text style={styles.unreadable}>This photo is hard to read. Try again with these tips:</Text>
+              </View>
             ) : null}
 
-            {data.title ? <Text style={styles.resultTitle}>{data.title}</Text> : null}
-            {data.summary ? <Text style={styles.summary}>{data.summary}</Text> : null}
+            {data.title ? <Text style={[styles.resultTitle, scriptFont(data.title, 'bold')]}>{data.title}</Text> : null}
+            {data.summary ? <Text style={[styles.summary, scriptFont(data.summary)]}>{data.summary}</Text> : null}
 
             {data.read_aloud ? (
               <View style={styles.speakRow}>
-                <Text style={styles.speakLabel}>🔊 Read it to me</Text>
+                <View style={styles.speakLabelRow}>
+                  <Feather name="volume-2" size={iconSize.md} color={colors.text} />
+                  <Text style={styles.speakLabel}>Read it to me</Text>
+                </View>
                 <Switch
                   value={speaking}
                   onValueChange={toggleSpeak}
                   accessibilityLabel="Read it to me"
                   trackColor={{ true: colors.accent, false: colors.border }}
-                  thumbColor="#fff"
+                  thumbColor={colors.onAccent}
                 />
               </View>
             ) : null}
 
-            <Section icon="📌" title="Key points" items={data.key_points} />
-            <Section icon="✅" title={data.readable ? 'What to do' : 'Tips for a better photo'} items={data.what_to_do} />
-            <Section icon="⚠️" title="Warnings" items={data.warnings} color={colors.tipText} />
+            <Section icon="list" title="Key points" items={data.key_points} />
+            <Section icon="check-circle" title={data.readable ? 'What to do' : 'Tips for a better photo'} items={data.what_to_do} iconColor={colors.success} />
+            <Section icon="alert-triangle" title="Warnings" items={data.warnings} color={colors.tipText} iconColor={colors.marigold} />
 
             {result.modeId === 'medicine' ? (
-              <Text style={styles.medNote}>
-                ⚕️ Always confirm the medicine and dose with a doctor or pharmacist before taking it.
-              </Text>
+              <View style={styles.medNote}>
+                <Feather name="heart" size={iconSize.md} color={colors.marigold} />
+                <Text style={styles.medNoteText}>Always confirm the medicine and dose with a doctor or pharmacist before taking it.</Text>
+              </View>
             ) : null}
           </View>
         ) : null}
 
         {data ? (
-          <Text style={styles.disclaimer}>
-            🤖 This explanation is made by AI and can be wrong. Check important details yourself or with an expert.
-          </Text>
+          <View style={styles.disclaimerRow}>
+            <Feather name="cpu" size={iconSize.sm} color={colors.muted} />
+            <Text style={styles.disclaimer}>This explanation is made by AI and can be wrong. Check important details yourself or with an expert.</Text>
+          </View>
         ) : null}
       </ScrollView>
     </SafeAreaView>
@@ -209,67 +231,79 @@ export default function ScanScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.bg },
-  content: { padding: 20, paddingBottom: 40, gap: 16 },
-  title: { color: colors.text, fontSize: 26, fontWeight: 'bold' },
-  modes: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  content: { padding: space.xl, paddingBottom: space.xxl + space.sm, gap: space.lg },
+  title: { color: colors.text, fontSize: 30, fontFamily: fonts.display, letterSpacing: -0.5 },
+  modes: { flexDirection: 'row', flexWrap: 'wrap', gap: space.md },
   modeCard: {
-    width: '48%',
+    width: '47%',
     flexGrow: 1,
-    backgroundColor: colors.card,
-    borderRadius: radius.md,
-    borderWidth: 2,
-    borderColor: colors.card,
-    padding: 14,
-    gap: 4,
+    backgroundColor: colors.surface,
+    borderRadius: radius.card,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    padding: space.lg,
+    gap: space.xs,
   },
-  modeCardActive: { borderColor: colors.accent, backgroundColor: colors.cardAlt },
-  modeEmoji: { fontSize: 28 },
-  modeLabel: { color: colors.text, fontSize: 16, fontWeight: '700' },
-  modeHint: { color: colors.textMuted, fontSize: 12 },
-  langRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  langLabel: { color: colors.textMuted, fontSize: 15 },
-  buttons: { flexDirection: 'row', gap: 10 },
+  modeCardActive: { borderColor: colors.accent, backgroundColor: colors.raised },
+  modeIcon: { width: touch, height: touch, borderRadius: radius.md, backgroundColor: colors.raised, alignItems: 'center', justifyContent: 'center', marginBottom: space.xs },
+  modeIconActive: { backgroundColor: colors.accent },
+  modeLabel: { color: colors.text, fontSize: 16, fontFamily: fonts.semibold },
+  modeHint: { color: colors.muted, fontSize: 12, fontFamily: fonts.regular },
+  langRow: { flexDirection: 'row', alignItems: 'center', gap: space.md },
+  langLabel: { color: colors.muted, fontSize: 15, fontFamily: fonts.medium },
+  buttons: { flexDirection: 'row', gap: space.md },
   sourceBtn: {
     flex: 1,
-    backgroundColor: colors.card,
-    borderRadius: radius.pill,
-    paddingVertical: 14,
+    minHeight: 52,
+    flexDirection: 'row',
+    gap: space.sm,
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
     alignItems: 'center',
+    justifyContent: 'center',
     borderWidth: 1,
     borderColor: colors.border,
   },
   cameraBtn: { backgroundColor: colors.accent, borderColor: colors.accent },
-  sourceText: { color: '#fff', fontSize: 16, fontWeight: '700' },
-  preview: { width: '100%', height: 200, borderRadius: radius.md, backgroundColor: colors.card },
-  loading: { gap: 8, paddingVertical: 4 },
-  loadingText: { color: colors.textMuted, fontSize: 15, textAlign: 'center' },
-  error: { color: colors.error, fontSize: 15, textAlign: 'center' },
-  resultCard: { backgroundColor: colors.card, borderRadius: radius.md, padding: 18, gap: 14 },
-  unreadable: { color: colors.tipText, fontSize: 15, fontWeight: '600' },
-  resultTitle: { color: colors.text, fontSize: 22, fontWeight: '700' },
+  sourceText: { color: colors.text, fontSize: 16, fontFamily: fonts.semibold },
+  preview: { width: '100%', height: 200, borderRadius: radius.card, backgroundColor: colors.surface },
+  loading: { gap: space.sm, paddingVertical: space.xs },
+  loadingText: { color: colors.muted, fontSize: 15, fontFamily: fonts.medium, textAlign: 'center' },
+  errorRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: space.sm },
+  error: { color: colors.error, fontSize: 15, fontFamily: fonts.medium, flexShrink: 1 },
+  resultCard: { backgroundColor: colors.surface, borderRadius: radius.card, padding: space.xl, gap: space.lg, borderWidth: 1, borderColor: colors.border },
+  unreadableRow: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
+  unreadable: { color: colors.tipText, fontSize: 15, fontFamily: fonts.semibold, flexShrink: 1 },
+  resultTitle: { color: colors.text, fontSize: 22 },
   summary: { color: colors.text, fontSize: 17, lineHeight: 25 },
   speakRow: {
+    minHeight: 56,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: colors.cardAlt,
-    borderRadius: radius.sm,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
+    backgroundColor: colors.raised,
+    borderRadius: radius.md,
+    paddingHorizontal: space.lg,
   },
-  speakLabel: { color: colors.text, fontSize: 16, fontWeight: '600' },
-  section: { gap: 6 },
-  sectionTitle: { color: colors.text, fontSize: 16, fontWeight: '700' },
-  bullet: { fontSize: 16, lineHeight: 23 },
+  speakLabelRow: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
+  speakLabel: { color: colors.text, fontSize: 16, fontFamily: fonts.semibold },
+  section: { gap: space.sm },
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
+  sectionTitle: { color: colors.text, fontSize: 16, fontFamily: fonts.semibold },
+  bulletRow: { flexDirection: 'row', gap: space.sm + 2, paddingLeft: space.xs },
+  bulletDot: { width: 6, height: 6, borderRadius: 3, marginTop: 9 },
+  bullet: { flex: 1, fontSize: 16, lineHeight: 23 },
   medNote: {
-    color: colors.tipText,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.md,
     backgroundColor: colors.tipBg,
     borderColor: colors.tipBorder,
     borderWidth: 1,
-    borderRadius: radius.sm,
-    padding: 12,
-    fontSize: 15,
-    fontWeight: '600',
+    borderRadius: radius.md,
+    padding: space.md + 2,
   },
-  disclaimer: { color: colors.textMuted, fontSize: 13, textAlign: 'center', lineHeight: 19 },
+  medNoteText: { flex: 1, color: colors.tipText, fontSize: 15, fontFamily: fonts.semibold, lineHeight: 21 },
+  disclaimerRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'center', gap: space.sm, paddingHorizontal: space.md },
+  disclaimer: { flexShrink: 1, color: colors.muted, fontSize: 13, fontFamily: fonts.regular, textAlign: 'center', lineHeight: 19 },
 });

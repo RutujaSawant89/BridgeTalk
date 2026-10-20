@@ -1,9 +1,11 @@
 import React from 'react';
-import { TouchableOpacity, Text, ActivityIndicator, StyleSheet } from 'react-native';
+import { TouchableOpacity, Text, ActivityIndicator, View, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { gradient, radius } from '../theme';
+import { Feather } from '@expo/vector-icons';
+import { colors, fonts, gradient, icon as iconSize, radius, space } from '../theme';
 
-export default function GradientButton({ title, onPress, loading = false, disabled = false, style, accessibilityLabel }) {
+// Primary call to action. Optional Feather `icon` sits before the title.
+export default function GradientButton({ title, onPress, loading = false, disabled = false, style, accessibilityLabel, icon }) {
   const inactive = disabled || loading;
   return (
     <TouchableOpacity
@@ -15,16 +17,24 @@ export default function GradientButton({ title, onPress, loading = false, disabl
       accessibilityLabel={accessibilityLabel ?? title}
       accessibilityState={{ disabled: inactive, busy: loading }}
     >
-      <LinearGradient colors={gradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.gradient}>
-        {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.text}>{title}</Text>}
+      <LinearGradient colors={gradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.gradient}>
+        {loading ? (
+          <ActivityIndicator color={colors.onAccent} />
+        ) : (
+          <View style={styles.row}>
+            {icon ? <Feather name={icon} size={iconSize.md} color={colors.onAccent} /> : null}
+            <Text style={styles.text}>{title}</Text>
+          </View>
+        )}
       </LinearGradient>
     </TouchableOpacity>
   );
 }
 
 const styles = StyleSheet.create({
-  wrap: { borderRadius: radius.pill, overflow: 'hidden' },
-  inactive: { opacity: 0.6 },
-  gradient: { height: 52, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24 },
-  text: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  wrap: { borderRadius: radius.md, overflow: 'hidden' },
+  inactive: { opacity: 0.5 },
+  gradient: { minHeight: 52, alignItems: 'center', justifyContent: 'center', paddingHorizontal: space.xl },
+  row: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
+  text: { color: colors.onAccent, fontSize: 16, fontFamily: fonts.semibold },
 });

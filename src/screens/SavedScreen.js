@@ -1,18 +1,20 @@
 import React, { useMemo, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, FlatList, Alert, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Feather } from '@expo/vector-icons';
 import * as Speech from 'expo-speech';
 import EmptyState from '../components/EmptyState';
 import ActionButton from '../components/ActionButton';
+import IconButton from '../components/IconButton';
 import ShareCardModal from '../components/ShareCardModal';
 import { SkeletonCard } from '../components/Skeleton';
 import { useHistory, searchHistory, MAX_HISTORY } from '../history';
 import { getLanguage, VIBES } from '../languages';
-import { colors, radius, space } from '../theme';
+import { colors, fonts, icon, radius, scriptFont, space, touch } from '../theme';
 
 const TABS = [
-  { id: 'saved', label: '⭐ Saved' },
-  { id: 'history', label: '🕘 History' },
+  { id: 'saved', label: 'Saved', icon: 'star' },
+  { id: 'history', label: 'History', icon: 'clock' },
 ];
 
 function timeAgo(at) {
@@ -47,20 +49,21 @@ export default function SavedScreen({ navigation }) {
     ]);
 
   const empty = query.trim() ? (
-    <EmptyState emoji="🔍" title="No matches" message={`Nothing in ${tab === 'saved' ? 'Saved' : 'History'} matches “${query.trim()}”.`} />
+    <EmptyState icon="search" title="No matches" message={`Nothing in ${tab === 'saved' ? 'Saved' : 'History'} matches “${query.trim()}”.`} />
   ) : tab === 'saved' ? (
-    <EmptyState emoji="⭐" title="No saved translations yet" message="Tap ☆ Save on any translation to keep it here, even offline." />
+    <EmptyState icon="star" title="No saved translations yet" message="Tap Save on any translation to keep it here, even offline." />
   ) : (
-    <EmptyState emoji="🕘" title="No history yet" message="Your translations and conversations will show up here." />
+    <EmptyState icon="clock" title="No history yet" message="Your translations and conversations will show up here." />
   );
 
   const header = (
     <View style={styles.header}>
       <View style={styles.titleRow}>
-        <Text style={styles.title}>Saved & History</Text>
-        <TouchableOpacity onPress={() => navigation.navigate('Profile')} style={styles.iconBtn} accessibilityRole="button" accessibilityLabel="Open settings" hitSlop={8}>
-          <Text style={styles.icon}>⚙️</Text>
-        </TouchableOpacity>
+        <IconButton name="arrow-left" onPress={() => navigation.goBack()} accessibilityLabel="Go back" />
+        <Text style={styles.title} accessibilityRole="header">
+          Saved
+        </Text>
+        <IconButton name="settings" onPress={() => navigation.navigate('Profile')} accessibilityLabel="Open settings" />
       </View>
       <View style={styles.tabs} accessibilityRole="tablist">
         {TABS.map((t) => {
@@ -71,29 +74,33 @@ export default function SavedScreen({ navigation }) {
               style={[styles.tab, active && styles.tabActive]}
               onPress={() => setTab(t.id)}
               accessibilityRole="tab"
-              accessibilityLabel={t.label.replace(/^\S+ /, '')}
+              accessibilityLabel={t.label}
               accessibilityState={{ selected: active }}
             >
+              <Feather name={t.icon} size={icon.sm} color={active ? colors.onAccent : colors.muted} />
               <Text style={[styles.tabText, active && styles.tabTextActive]}>{t.label}</Text>
             </TouchableOpacity>
           );
         })}
       </View>
-      <TextInput
-        style={styles.search}
-        placeholder={tab === 'saved' ? 'Search saved' : 'Search history'}
-        placeholderTextColor={colors.textMuted}
-        value={query}
-        onChangeText={setQuery}
-        autoCorrect={false}
-        accessibilityLabel={tab === 'saved' ? 'Search saved translations' : 'Search history'}
-      />
+      <View style={styles.searchBox}>
+        <Feather name="search" size={icon.sm + 2} color={colors.muted} />
+        <TextInput
+          style={styles.search}
+          placeholder={tab === 'saved' ? 'Search saved' : 'Search history'}
+          placeholderTextColor={colors.muted}
+          value={query}
+          onChangeText={setQuery}
+          autoCorrect={false}
+          accessibilityLabel={tab === 'saved' ? 'Search saved translations' : 'Search history'}
+        />
+      </View>
       {tab === 'history' && items.length ? (
         <View style={styles.metaRow}>
           <Text style={styles.meta}>
             {items.length} of {MAX_HISTORY} kept
           </Text>
-          <TouchableOpacity onPress={confirmClear} accessibilityRole="button" accessibilityLabel="Clear history" hitSlop={8}>
+          <TouchableOpacity style={styles.textBtn} onPress={confirmClear} accessibilityRole="button" accessibilityLabel="Clear history">
             <Text style={styles.clear}>Clear</Text>
           </TouchableOpacity>
         </View>
@@ -102,7 +109,7 @@ export default function SavedScreen({ navigation }) {
   );
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
+    <SafeAreaView style={styles.safe}>
       {!loaded ? (
         <View style={styles.list}>
           {header}
@@ -121,29 +128,31 @@ export default function SavedScreen({ navigation }) {
             const vibe = VIBES.find((v) => v.id === item.vibeId);
             return (
               <View style={styles.card}>
-                <Text style={styles.meta}>
-                  {getLanguage(item.from)?.flag} {item.from} → {getLanguage(item.to)?.flag} {item.to}
-                  {vibe ? ` · ${vibe.emoji}` : ''}
-                  {item.kind === 'talk' ? ' · 🎙️ Talk' : ''} · {timeAgo(item.at)}
-                </Text>
-                <Text style={styles.original} numberOfLines={2}>
+                <View style={styles.cardMeta}>
+                  <Text style={styles.meta} numberOfLines={1}>
+                    {getLanguage(item.from)?.flag} {item.from} → {getLanguage(item.to)?.flag} {item.to} · {timeAgo(item.at)}
+                  </Text>
+                  {item.kind === 'talk' ? <Feather name="mic" size={icon.sm - 2} color={colors.muted} /> : null}
+                  {vibe ? <View style={[styles.vibeDot, { backgroundColor: vibe.color }]} accessibilityLabel={`${vibe.label} vibe`} /> : null}
+                </View>
+                <Text style={[styles.original, scriptFont(item.original)]} numberOfLines={2}>
                   {item.original}
                 </Text>
-                <Text style={styles.translation} selectable>
+                <Text style={[styles.translation, scriptFont(item.translation, 'semibold')]} selectable>
                   {item.translation}
                 </Text>
-                {item.pronunciation ? <Text style={styles.pron}>🗣 {item.pronunciation}</Text> : null}
+                {item.pronunciation ? <Text style={styles.pron}>{item.pronunciation}</Text> : null}
                 <View style={styles.actions}>
-                  <ActionButton icon="🔊" label="Listen" onPress={() => listen(item)} accessibilityLabel={`Listen to ${item.translation}`} />
+                  <ActionButton icon="volume-2" label="Listen" onPress={() => listen(item)} accessibilityLabel={`Listen to ${item.translation}`} />
                   <ActionButton
-                    icon={item.starred ? '⭐' : '☆'}
+                    icon="star"
                     label={item.starred ? 'Saved' : 'Save'}
                     active={item.starred}
                     onPress={() => toggleStar(item.id)}
                     accessibilityLabel={item.starred ? 'Remove from saved' : 'Save translation'}
                   />
-                  <ActionButton icon="🖼️" label="Share" onPress={() => setSharing(item)} accessibilityLabel="Share as image" />
-                  <ActionButton icon="🗑️" label="" onPress={() => remove(item.id)} accessibilityLabel="Delete" style={styles.deleteBtn} />
+                  <ActionButton icon="share-2" label="Share" onPress={() => setSharing(item)} accessibilityLabel="Share as image" />
+                  <ActionButton icon="trash-2" onPress={() => remove(item.id)} accessibilityLabel="Delete" />
                 </View>
               </View>
             );
@@ -157,25 +166,36 @@ export default function SavedScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.bg },
-  list: { padding: space.lg, paddingBottom: space.xxl, gap: space.md },
+  list: { padding: space.xl, paddingTop: space.md, paddingBottom: space.xxl, gap: space.md },
   header: { gap: space.md, marginBottom: space.xs },
-  titleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  title: { color: colors.text, fontSize: 26, fontWeight: 'bold' },
-  iconBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.card, alignItems: 'center', justifyContent: 'center' },
-  icon: { fontSize: 20 },
-  tabs: { flexDirection: 'row', backgroundColor: colors.card, borderRadius: radius.pill, padding: space.xs },
-  tab: { flex: 1, paddingVertical: space.sm + 2, borderRadius: radius.pill, alignItems: 'center' },
+  titleRow: { flexDirection: 'row', alignItems: 'center', gap: space.md },
+  title: { flex: 1, color: colors.text, fontSize: 30, fontFamily: fonts.display, letterSpacing: -0.5 },
+  tabs: { flexDirection: 'row', backgroundColor: colors.surface, borderRadius: radius.md, padding: space.xs, borderWidth: 1, borderColor: colors.border },
+  tab: { flex: 1, minHeight: touch, flexDirection: 'row', gap: space.xs + 2, borderRadius: radius.md - 4, alignItems: 'center', justifyContent: 'center' },
   tabActive: { backgroundColor: colors.accent },
-  tabText: { color: colors.textMuted, fontSize: 15, fontWeight: '700' },
-  tabTextActive: { color: '#fff' },
-  search: { backgroundColor: colors.card, color: colors.text, borderRadius: radius.sm, paddingHorizontal: space.lg, paddingVertical: space.md, fontSize: 15 },
-  metaRow: { flexDirection: 'row', justifyContent: 'space-between' },
-  meta: { color: colors.textMuted, fontSize: 12 },
-  clear: { color: colors.error, fontSize: 14, fontWeight: '700' },
-  card: { backgroundColor: colors.card, borderRadius: radius.md, padding: space.lg, gap: space.xs + 2 },
-  original: { color: colors.textMuted, fontSize: 14 },
-  translation: { color: colors.text, fontSize: 20, fontWeight: '700' },
-  pron: { color: colors.textMuted, fontSize: 13, fontStyle: 'italic' },
+  tabText: { color: colors.muted, fontSize: 15, fontFamily: fonts.semibold },
+  tabTextActive: { color: colors.onAccent },
+  searchBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.sm,
+    minHeight: 48,
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    paddingHorizontal: space.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  search: { flex: 1, color: colors.text, fontSize: 15, fontFamily: fonts.regular, paddingVertical: space.sm },
+  metaRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  textBtn: { minHeight: touch, minWidth: touch, alignItems: 'flex-end', justifyContent: 'center' },
+  meta: { color: colors.muted, fontSize: 12, fontFamily: fonts.medium, flexShrink: 1 },
+  clear: { color: colors.error, fontSize: 14, fontFamily: fonts.semibold },
+  card: { backgroundColor: colors.surface, borderRadius: radius.card, padding: space.xl, gap: space.xs + 2, borderWidth: 1, borderColor: colors.border },
+  cardMeta: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
+  vibeDot: { width: 10, height: 10, borderRadius: 5 },
+  original: { color: colors.muted, fontSize: 14 },
+  translation: { color: colors.text, fontSize: 20, lineHeight: 28 },
+  pron: { color: colors.muted, fontSize: 13, fontFamily: fonts.regular },
   actions: { flexDirection: 'row', gap: space.sm, marginTop: space.sm },
-  deleteBtn: { flex: 0, paddingHorizontal: space.md },
 });

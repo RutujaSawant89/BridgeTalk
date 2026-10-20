@@ -1,3 +1,5 @@
+import { vibeColors } from './theme';
+
 // whisper: ISO-639-1 code for Whisper speech-to-text (null = Whisper can't transcribe it)
 // tts: BCP-47 locale for text-to-speech
 export const LANGUAGES = [
@@ -45,7 +47,8 @@ export const VIBES = [
     id: 'formal',
     label: 'Formal',
     emoji: '🎩',
-    color: '#5029FB',
+    color: vibeColors.formal,
+    icon: 'briefcase', // Feather
     instruction:
       'Polite, respectful and grammatically correct, as used with elders, officials or in writing. Use honorific forms where the language has them (e.g. "aap" in Hindi).',
   },
@@ -53,7 +56,8 @@ export const VIBES = [
     id: 'casual',
     label: 'Casual',
     emoji: '😎',
-    color: '#1FB57A',
+    color: vibeColors.casual,
+    icon: 'smile', // Feather
     instruction:
       'Relaxed, everyday conversational tone, as spoken with friends. Natural contractions and informal pronouns where appropriate.',
   },
@@ -61,7 +65,8 @@ export const VIBES = [
     id: 'local',
     label: 'Like a local',
     emoji: '🛺',
-    color: '#F2A93B',
+    color: vibeColors.local,
+    icon: 'map-pin', // Feather
     instruction:
       'Sound like a real local on the street: use genuine regional slang and the code-mixing people actually speak (e.g. Hinglish, Bambaiya, Tanglish, Manglish), mixing in common English words the way locals do. Keep it friendly and never offensive, vulgar or abusive.',
   },
@@ -69,7 +74,8 @@ export const VIBES = [
     id: 'filmy',
     label: 'Filmy',
     emoji: '🎬',
-    color: '#E5486D',
+    color: vibeColors.filmy,
+    icon: 'film', // Feather
     instruction:
       'Dramatic, over-the-top Bollywood-dialogue style, as if delivered by a movie hero with full emotion and flair. Keep it family-friendly and keep the original meaning recognisable.',
   },

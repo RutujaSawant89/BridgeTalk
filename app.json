@@ -45,7 +45,8 @@
         {
           "microphonePermission": "BridgeTalk uses the microphone so you can speak and have your words translated for the person you are talking to."
         }
-      ]
+      ],
+      "expo-font"
     ]
   }
 }

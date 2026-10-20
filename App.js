@@ -9,19 +9,22 @@ import Landing from './src/landing';
 import OnboardingScreen from './src/screens/OnboardingScreen';
 import SOSScreen from './src/screens/SOSScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
+import SavedScreen from './src/screens/SavedScreen';
 import ErrorBoundary from './src/components/ErrorBoundary';
 import OfflineBanner from './src/components/OfflineBanner';
 import { PrefsProvider, usePrefs } from './src/prefs';
 import { HistoryProvider } from './src/history';
+import { useAppFonts } from './src/fonts';
 import { colors } from './src/theme';
 
 const Stack = createNativeStackNavigator();
 
 function RootNavigator() {
   const { loaded, prefs } = usePrefs();
+  const fontsReady = useAppFonts();
 
-  // Wait for saved preferences so first launch goes to onboarding and later launches don't flash it
-  if (!loaded) {
+  // Wait for saved preferences (so first launch goes to onboarding without a flash) and fonts
+  if (!loaded || !fontsReady) {
     return (
       <View style={{ flex: 1, backgroundColor: colors.bg, alignItems: 'center', justifyContent: 'center' }}>
         <ActivityIndicator color={colors.accent} accessibilityLabel="Loading BridgeTalk" />
@@ -39,6 +42,7 @@ function RootNavigator() {
         <Stack.Screen name="Landing" component={Landing} />
         <Stack.Screen name="Home" component={Home} />
         <Stack.Screen name="SOS" component={SOSScreen} options={{ presentation: 'fullScreenModal', animation: 'fade' }} />
+        <Stack.Screen name="Saved" component={SavedScreen} options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="Profile" component={ProfileScreen} options={{ animation: 'slide_from_right' }} />
       </Stack.Navigator>
     </NavigationContainer>

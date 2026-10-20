@@ -2,7 +2,9 @@ import data from './data/phrasebook.json';
 
 // Bundled with the app, so everything here works offline.
 export const PHRASEBOOK_LANGUAGES = data.languages;
-export const CATEGORIES = data.categories;
+// Feather icon per category
+const CATEGORY_ICONS = { greetings: 'smile', food: 'coffee', transport: 'navigation', shopping: 'shopping-bag', hotel: 'home', emergency: 'alert-triangle' };
+export const CATEGORIES = data.categories.map((c) => ({ ...c, icon: CATEGORY_ICONS[c.id] }));
 export const PHRASES = data.phrases;
 
 export const hasPhrasebook = (language) => PHRASEBOOK_LANGUAGES.includes(language);

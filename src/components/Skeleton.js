@@ -2,7 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import { Animated, View, StyleSheet } from 'react-native';
 import { colors, radius, space } from '../theme';
 
-// A grey bar that gently pulses while content loads.
+// A bar that gently pulses while content loads.
 export function SkeletonBar({ width = '100%', height = 14, style }) {
   const pulse = useRef(new Animated.Value(0.4)).current;
   useEffect(() => {
@@ -22,8 +22,8 @@ export function SkeletonBar({ width = '100%', height = 14, style }) {
 export function SkeletonCard({ lines = 3, label = 'Loading' }) {
   return (
     <View style={styles.card} accessible accessibilityLabel={label} accessibilityRole="progressbar">
-      <SkeletonBar width="35%" height={12} />
-      <SkeletonBar width="90%" height={26} />
+      <SkeletonBar width="30%" height={12} />
+      <SkeletonBar width="90%" height={28} />
       {Array.from({ length: lines }, (_, i) => (
         <SkeletonBar key={i} width={`${80 - i * 15}%`} />
       ))}
@@ -32,6 +32,6 @@ export function SkeletonCard({ lines = 3, label = 'Loading' }) {
 }
 
 const styles = StyleSheet.create({
-  bar: { backgroundColor: colors.cardAlt, borderRadius: radius.sm },
-  card: { backgroundColor: colors.card, borderRadius: radius.md, padding: space.lg, gap: space.md },
+  bar: { backgroundColor: colors.raised, borderRadius: radius.sm / 2 },
+  card: { backgroundColor: colors.surface, borderRadius: radius.card, padding: space.xl, gap: space.md, borderWidth: 1, borderColor: colors.border },
 });

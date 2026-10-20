@@ -1,10 +1,11 @@
 import React, { useRef, useState } from 'react';
 import { Modal, View, Text, TouchableOpacity, Share, ActivityIndicator, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Feather } from '@expo/vector-icons';
 import { captureRef } from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
 import { getLanguage, VIBES } from '../languages';
-import { colors, gradient, radius, space } from '../theme';
+import { colors, fonts, gradient, icon, radius, scriptFont, space, touch } from '../theme';
 
 // item: { original, translation, pronunciation, from, to, vibeId }
 export default function ShareCardModal({ item, onClose }) {
@@ -44,16 +45,24 @@ export default function ShareCardModal({ item, onClose }) {
         {/* This view is what gets captured as the image */}
         <View ref={cardRef} collapsable={false} style={styles.cardWrap}>
           <LinearGradient colors={gradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.card}>
-            <Text style={styles.langs}>
-              {from?.flag} {item.from} → {to?.flag} {item.to}
-              {vibe ? `   ${vibe.emoji} ${vibe.label}` : ''}
-            </Text>
-            <Text style={styles.original}>“{item.original}”</Text>
-            <Text style={styles.translation}>{item.translation}</Text>
-            {item.pronunciation ? <Text style={styles.pron}>🗣 {item.pronunciation}</Text> : null}
+            <View style={styles.metaRow}>
+              <Text style={styles.langs}>
+                {from?.flag} {item.from} → {to?.flag} {item.to}
+              </Text>
+              {vibe ? (
+                <View style={[styles.vibeTag, { backgroundColor: vibe.color }]}>
+                  <Feather name={vibe.icon} size={12} color={colors.onVibe} />
+                  <Text style={styles.vibeText}>{vibe.label}</Text>
+                </View>
+              ) : null}
+            </View>
+            <Text style={[styles.original, scriptFont(item.original)]}>“{item.original}”</Text>
+            <Text style={[styles.translation, scriptFont(item.translation, 'bold')]}>{item.translation}</Text>
+            {item.pronunciation ? <Text style={styles.pron}>{item.pronunciation}</Text> : null}
             <View style={styles.footer}>
+              <Text style={styles.footerText}>Translated with</Text>
               <Text style={styles.brand}>
-                Translated with BridgeTalk<Text style={styles.dot}>.</Text>
+                BridgeTalk<Text style={styles.dot}>.</Text>
               </Text>
             </View>
           </LinearGradient>
@@ -62,10 +71,18 @@ export default function ShareCardModal({ item, onClose }) {
         {error ? <Text style={styles.error}>{error}</Text> : null}
         <View style={styles.actions}>
           <TouchableOpacity style={[styles.btn, styles.primary]} onPress={shareImage} disabled={busy} accessibilityRole="button" accessibilityLabel="Share as image">
-            {busy ? <ActivityIndicator color="#fff" /> : <Text style={styles.btnText}>🖼️ Share image</Text>}
+            {busy ? (
+              <ActivityIndicator color={colors.onAccent} />
+            ) : (
+              <>
+                <Feather name="image" size={icon.md} color={colors.onAccent} />
+                <Text style={styles.btnText}>Share image</Text>
+              </>
+            )}
           </TouchableOpacity>
           <TouchableOpacity style={styles.btn} onPress={shareText} accessibilityRole="button" accessibilityLabel="Share as text">
-            <Text style={styles.btnText}>📝 Text</Text>
+            <Feather name="type" size={icon.md} color={colors.text} />
+            <Text style={styles.btnText}>Text</Text>
           </TouchableOpacity>
         </View>
         <TouchableOpacity onPress={onClose} style={styles.close} accessibilityRole="button" accessibilityLabel="Close">
@@ -77,21 +94,34 @@ export default function ShareCardModal({ item, onClose }) {
 }
 
 const styles = StyleSheet.create({
-  backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'center', padding: space.xl, gap: space.lg },
-  cardWrap: { borderRadius: radius.lg, overflow: 'hidden' },
+  backdrop: { flex: 1, backgroundColor: colors.scrim, justifyContent: 'center', padding: space.xl, gap: space.lg },
+  cardWrap: { borderRadius: radius.card, overflow: 'hidden' },
   card: { padding: space.xl + 4, gap: space.md },
-  langs: { color: 'rgba(255,255,255,0.85)', fontSize: 13, fontWeight: '700' },
-  original: { color: 'rgba(255,255,255,0.85)', fontSize: 16, fontStyle: 'italic' },
-  translation: { color: '#fff', fontSize: 30, fontWeight: '800', lineHeight: 40 },
-  pron: { color: 'rgba(255,255,255,0.9)', fontSize: 16 },
-  footer: { marginTop: space.md, paddingTop: space.md, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.3)' },
-  brand: { color: '#fff', fontSize: 14, fontWeight: '700', fontFamily: 'monospace', textAlign: 'right' },
-  dot: { color: '#c9b8ff' },
-  error: { color: colors.error, textAlign: 'center' },
+  metaRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space.sm },
+  langs: { color: colors.onAccentSoft, fontSize: 13, fontFamily: fonts.semibold, flexShrink: 1 },
+  vibeTag: { flexDirection: 'row', alignItems: 'center', gap: 4, borderRadius: radius.pill, paddingHorizontal: space.sm + 2, paddingVertical: 4 },
+  vibeText: { color: colors.onVibe, fontSize: 12, fontFamily: fonts.bold },
+  original: { color: colors.onAccentSoft, fontSize: 16 },
+  translation: { color: colors.onAccent, fontSize: 30, lineHeight: 42 },
+  pron: { color: colors.onAccentSoft, fontSize: 16, fontFamily: fonts.regular },
+  footer: { marginTop: space.md, paddingTop: space.md, borderTopWidth: 1, borderTopColor: colors.onAccentFaint, flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'baseline', gap: 6 },
+  footerText: { color: colors.onAccentSoft, fontSize: 13, fontFamily: fonts.medium },
+  brand: { color: colors.onAccent, fontSize: 18, fontFamily: fonts.display },
+  dot: { color: colors.marigold },
+  error: { color: colors.error, textAlign: 'center', fontFamily: fonts.regular },
   actions: { flexDirection: 'row', gap: space.md },
-  btn: { flex: 1, backgroundColor: colors.cardAlt, borderRadius: radius.pill, paddingVertical: space.md + 2, alignItems: 'center' },
+  btn: {
+    flex: 1,
+    minHeight: 52,
+    flexDirection: 'row',
+    gap: space.sm,
+    backgroundColor: colors.raised,
+    borderRadius: radius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   primary: { backgroundColor: colors.accent, flex: 2 },
-  btnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
-  close: { alignSelf: 'center', padding: space.sm },
-  closeText: { color: colors.textMuted, fontSize: 15 },
+  btnText: { color: colors.onAccent, fontSize: 16, fontFamily: fonts.semibold },
+  close: { alignSelf: 'center', minHeight: touch, minWidth: touch * 2, alignItems: 'center', justifyContent: 'center' },
+  closeText: { color: colors.muted, fontSize: 15, fontFamily: fonts.medium },
 });

@@ -3,6 +3,7 @@ import { askAboutImage } from './api';
 export const SCAN_MODES = [
   {
     id: 'medicine',
+    icon: 'plus-square', // Feather
     emoji: '💊',
     label: 'Medicine',
     hint: 'Strip, bottle or prescription',
@@ -15,6 +16,7 @@ export const SCAN_MODES = [
   },
   {
     id: 'bill',
+    icon: 'file-text', // Feather
     emoji: '📄',
     label: 'Bill / Form',
     hint: 'Electricity bill, notice, application',
@@ -25,6 +27,7 @@ export const SCAN_MODES = [
   },
   {
     id: 'sign',
+    icon: 'map', // Feather
     emoji: '🪧',
     label: 'Sign / Menu',
     hint: 'Street sign, notice board, menu',
@@ -35,6 +38,7 @@ export const SCAN_MODES = [
   },
   {
     id: 'anything',
+    icon: 'search', // Feather
     emoji: '🔍',
     label: 'Anything',
     hint: 'Explain whatever is in the photo',
