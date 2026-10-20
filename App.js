@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { View, ActivityIndicator } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { NavigationContainer } from '@react-navigation/native';
@@ -12,6 +13,8 @@ import ProfileScreen from './src/screens/ProfileScreen';
 import SavedScreen from './src/screens/SavedScreen';
 import ErrorBoundary from './src/components/ErrorBoundary';
 import OfflineBanner from './src/components/OfflineBanner';
+import ServerWakingBanner from './src/components/ServerWakingBanner';
+import { warmUp } from './src/serverStatus';
 import { PrefsProvider, usePrefs } from './src/prefs';
 import { HistoryProvider } from './src/history';
 import { useAppFonts } from './src/fonts';
@@ -50,6 +53,11 @@ function RootNavigator() {
 }
 
 export default function App() {
+  // Wake the free server as soon as the app opens, so it's ready by the first translation
+  useEffect(() => {
+    warmUp();
+  }, []);
+
   return (
     <SafeAreaProvider initialMetrics={initialWindowMetrics}>
       <StatusBar style="light" />
@@ -58,6 +66,7 @@ export default function App() {
           <HistoryProvider>
             <View style={{ flex: 1, backgroundColor: colors.bg }}>
               <RootNavigator />
+              <ServerWakingBanner />
               <OfflineBanner />
             </View>
           </HistoryProvider>

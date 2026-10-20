@@ -1,13 +1,18 @@
-import { API_URL, GROQ_API_KEY, MODELS } from './config';
+import { API_URL, APP_TOKEN, GROQ_API_KEY, MODELS } from './config';
 import { AppError } from './errors';
 import { parseJSON } from './json';
 import { devWarn } from './log';
+import { markWarm, trackRequest } from './serverStatus';
 
 export { parseJSON };
 
-// With a proxy URL the server holds the key; otherwise call Groq directly.
+// With a proxy URL the server holds the Groq key and checks the shared app token;
+// otherwise (local development only) call Groq directly.
 const BASE_URL = API_URL ? `${API_URL.replace(/\/+$/, '')}/api` : 'https://api.groq.com/openai/v1';
-const authHeaders = () => (API_URL ? {} : { Authorization: `Bearer ${GROQ_API_KEY}` });
+const authHeaders = () => {
+  if (!API_URL) return { Authorization: `Bearer ${GROQ_API_KEY}` };
+  return APP_TOKEN ? { 'X-App-Token': APP_TOKEN } : {};
+};
 
 const TIMEOUT_MS = 30000;
 const MAX_RATE_LIMIT_WAIT_MS = 10000;
@@ -32,8 +37,10 @@ async function fetchWithTimeout(url, options) {
   }
 }
 
-// Groq rate-limit errors say "Please try again in 4.59s"
+// The proxy sends retry_after (seconds); Groq's own errors say "Please try again in 4.59s"
 function rateLimitWaitMs(data) {
+  const retryAfter = Number(data?.error?.retry_after);
+  if (Number.isFinite(retryAfter) && retryAfter > 0) return retryAfter * 1000 + 250;
   const match = /try again in ([\d.]+)s/i.exec(data?.error?.message || '');
   return match ? Math.ceil(parseFloat(match[1]) * 1000) + 250 : null;
 }
@@ -66,16 +73,20 @@ async function request(path, options, { attempt = 0, maxRateLimitWaitMs = MAX_RA
 
   let error;
   try {
-    const { response, raw } = await fetchWithTimeout(`${BASE_URL}${path}`, {
-      ...options,
-      headers: { ...authHeaders(), ...options.headers },
-    });
+    const { response, raw } = await trackRequest(
+      fetchWithTimeout(`${BASE_URL}${path}`, {
+        ...options,
+        headers: { ...authHeaders(), ...options.headers },
+      })
+    );
     let data = null;
     try {
       data = raw ? JSON.parse(raw) : null;
     } catch {
       // non-JSON body, e.g. an HTML error page
     }
+    // Any JSON answer means our server is up (Render's "waking up" pages are HTML)
+    if (data !== null) markWarm();
 
     if (response.ok) {
       if (data !== null) return data;
