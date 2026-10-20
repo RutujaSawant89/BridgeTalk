@@ -4,7 +4,36 @@ import { API_URL, GROQ_API_KEY, MODELS } from './config';
 const BASE_URL = API_URL ? `${API_URL.replace(/\/+$/, '')}/api` : 'https://api.groq.com/openai/v1';
 const authHeaders = () => (API_URL ? {} : { Authorization: `Bearer ${GROQ_API_KEY}` });
 
-async function request(path, options) {
+const MAX_RETRY_WAIT_MS = 10000;
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+const apiError = (message, details) => Object.assign(new Error(message), details);
+
+// Turns raw API failures into messages people can act on; keeps code/details for callers.
+function toApiError(status, data) {
+  const apiMessage =
+    data?.error?.message || (typeof data?.error === 'string' ? data.error : null) || data?.message || '';
+  const details = { status, code: data?.error?.code, failedGeneration: data?.error?.failed_generation };
+
+  if (status === 429) {
+    return apiError('Lots of people are translating right now. Please wait a few seconds and try again.', details);
+  }
+  if (details.code === 'json_validate_failed') {
+    return apiError('The AI got confused by that one. Please try again, or try a shorter sentence.', details);
+  }
+  if (status >= 500 && !apiMessage) {
+    // Render's free tier returns an HTML 502/503 page while the server is waking up
+    return apiError('The server is waking up. Please try again in about 30 seconds.', details);
+  }
+  return apiError(apiMessage || `Request failed (${status})`, details);
+}
+
+// Groq rate-limit errors say "Please try again in 4.59s"
+function retryDelayMs(data) {
+  const match = /try again in ([d.]+)s/i.exec(data?.error?.message || '');
+  return match ? Math.ceil(parseFloat(match[1]) * 1000) + 250 : null;
+}
+
+async function request(path, options, { retryOnRateLimit = true } = {}) {
   if (!API_URL && !GROQ_API_KEY) {
     throw new Error('No API configured. Set EXPO_PUBLIC_API_URL or EXPO_PUBLIC_GROQ_API_KEY in .env');
   }
@@ -28,12 +57,13 @@ async function request(path, options) {
   }
 
   if (!response.ok) {
-    const message =
-      data?.error?.message ||
-      (typeof data?.error === 'string' ? data.error : null) ||
-      data?.message ||
-      `Request failed (${response.status})`;
-    throw new Error(message);
+    // A short Groq rate-limit wait is retried once automatically instead of bothering the user
+    const wait = response.status === 429 ? retryDelayMs(data) : null;
+    if (retryOnRateLimit && wait && wait <= MAX_RETRY_WAIT_MS) {
+      await sleep(wait);
+      return request(path, options, { retryOnRateLimit: false });
+    }
+    throw toApiError(response.status, data);
   }
   if (data === null) throw new Error('Unexpected response from the server.');
   return data;
@@ -43,6 +73,9 @@ async function request(path, options) {
 export async function chat(messages, { model = MODELS.text, temperature = 0.3, json = false, maxTokens = 1500 } = {}) {
   const body = { model, messages, temperature, max_tokens: maxTokens };
   if (json) body.response_format = { type: 'json_object' };
+  // gpt-oss reasons before answering and that counts against max_tokens; at the default effort a
+  // long input could use up the budget and cut the JSON off. Low effort is plenty for translation.
+  if (model.startsWith('openai/gpt-oss')) body.reasoning_effort = 'low';
 
   const data = await request('/chat/completions', {
     method: 'POST',
@@ -72,7 +105,19 @@ export function parseJSON(text) {
 }
 
 export async function chatJSON(messages, options = {}) {
-  return parseJSON(await chat(messages, { ...options, json: true }));
+  try {
+    return parseJSON(await chat(messages, { ...options, json: true }));
+  } catch (e) {
+    if (e.code !== 'json_validate_failed') throw e;
+    // Groq rejected malformed JSON; its partial output is often still usable
+    if (e.failedGeneration) {
+      try {
+        return parseJSON(e.failedGeneration);
+      } catch {}
+    }
+    // Otherwise the reply was most likely cut off: retry once with more room
+    return parseJSON(await chat(messages, { ...options, json: true, maxTokens: (options.maxTokens ?? 1500) * 2 }));
+  }
 }
 
 // uri: local audio file from the recorder. languageCode: Whisper ISO code, or null to auto-detect.
