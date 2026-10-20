@@ -56,6 +56,7 @@ export default function ScanScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [speaking, setSpeaking] = useState(false);
+  const [waitingSeconds, setWaitingSeconds] = useState(0);
   const inFlight = useRef(false); // blocks double taps while the picker or a request is open
 
   useEffect(() => () => Speech.stop(), []);
@@ -85,16 +86,18 @@ export default function ScanScreen() {
 
       stopSpeaking();
       setResult(null);
+      setWaitingSeconds(0);
       setLoading(true);
       const image = await prepareImage(picked.assets[0]);
       setPhoto(image.uri);
-      const data = await explainImage(image.base64, modeId, language);
+      const data = await explainImage(image.base64, modeId, language, { onWait: setWaitingSeconds });
       setResult({ data, language, modeId });
       if (data.readable) haptics.success();
     } catch (e) {
       setError(friendlyMessage(e, 'scan'));
     } finally {
       inFlight.current = false;
+      setWaitingSeconds(0);
       setLoading(false);
     }
   };
@@ -165,7 +168,9 @@ export default function ScanScreen() {
 
         {loading ? (
           <View style={styles.loading}>
-            <Text style={styles.loadingText}>Reading your photo…</Text>
+            <Text style={styles.loadingText} accessibilityLiveRegion="polite">
+              {waitingSeconds ? `Busy right now, trying again in ${waitingSeconds} s…` : 'Reading your photo…'}
+            </Text>
             <SkeletonCard lines={4} label="Reading your photo" />
           </View>
         ) : null}

@@ -72,9 +72,9 @@ Return exactly this JSON shape:
 const toList = (v) =>
   (Array.isArray(v) ? v : v ? [v] : []).map((s) => String(s).trim()).filter(Boolean);
 
-export async function explainImage(base64, modeId, language) {
+export async function explainImage(base64, modeId, language, { onWait } = {}) {
   const mode = SCAN_MODES.find((m) => m.id === modeId) ?? SCAN_MODES[3];
-  const data = await askAboutImage(base64, buildPrompt(mode, language));
+  const data = await askAboutImage(base64, buildPrompt(mode, language), { onWait });
 
   return {
     title: String(data.title ?? '').trim(),

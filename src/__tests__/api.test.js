@@ -4,7 +4,7 @@ jest.mock('../config', () => ({
   MODELS: { text: 'openai/gpt-oss-120b', speech: 'whisper-large-v3-turbo', vision: 'qwen/qwen3.8-27b' },
 }));
 
-import { chatJSON } from '../api';
+import { chatJSON, askAboutImage } from '../api';
 import { translateOne } from '../translate';
 
 const reply = (content) => ({ ok: true, status: 200, text: async () => JSON.stringify({ choices: [{ message: { content } }] }) });
@@ -109,6 +109,30 @@ describe('translateOne', () => {
       translateOne('good morning', 'English', 'French'),
     ]);
     expect(a).toEqual(b);
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('vision rate limits', () => {
+  afterEach(() => jest.useRealTimers());
+
+  it('Scan waits out a 17 s rate limit, reports the wait, then succeeds', async () => {
+    jest.useFakeTimers();
+    const onWait = jest.fn();
+    fetch
+      .mockResolvedValueOnce(failure(429, { message: 'Rate limit reached for model qwen. Please try again in 17.2s.' }))
+      .mockResolvedValueOnce(reply('```json\n{"title":"Menu"}\n```'));
+    const result = askAboutImage('aGVsbG8=', 'Explain', { onWait });
+    await jest.advanceTimersByTimeAsync(18000);
+    await expect(result).resolves.toEqual({ title: 'Menu' });
+    expect(onWait).toHaveBeenCalledWith(18);
+    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(sentBody(0)).toMatchObject({ model: 'qwen/qwen3.8-27b', max_tokens: 1200 });
+  });
+
+  it('text translation still gives up on waits over 10 s', async () => {
+    fetch.mockResolvedValue(failure(429, { message: 'Please try again in 17.2s.' }));
+    await expect(chatJSON(messages)).rejects.toMatchObject({ kind: 'rate_limit' });
     expect(fetch).toHaveBeenCalledTimes(1);
   });
 });

@@ -51,7 +51,10 @@ function toAppError(path, status, data, raw) {
 const isRetryable = (e) => ['network', 'timeout', 'warming', 'server'].includes(e.kind);
 
 // One automatic retry for network drops, timeouts, cold starts, 5xx and short rate-limit waits.
-async function request(path, options, attempt = 0) {
+// maxRateLimitWaitMs: how long to wait out a Groq rate limit before giving up (Scan allows longer).
+// onWait(seconds): told when we're waiting, so the screen can say so.
+async function request(path, options, { attempt = 0, maxRateLimitWaitMs = MAX_RATE_LIMIT_WAIT_MS, onWait } = {}) {
+  const retry = () => request(path, options, { attempt: 1, maxRateLimitWaitMs, onWait });
   if (!API_URL && !GROQ_API_KEY) {
     throw new AppError('config', 'No API configured. Set EXPO_PUBLIC_API_URL or EXPO_PUBLIC_GROQ_API_KEY in .env');
   }
@@ -76,9 +79,10 @@ async function request(path, options, attempt = 0) {
     } else {
       error = toAppError(path, response.status, data, raw);
       const wait = error.kind === 'rate_limit' ? rateLimitWaitMs(data) : null;
-      if (attempt === 0 && wait && wait <= MAX_RATE_LIMIT_WAIT_MS) {
+      if (attempt === 0 && wait && wait <= maxRateLimitWaitMs) {
+        onWait?.(Math.ceil(wait / 1000));
         await sleep(wait);
-        return request(path, options, 1);
+        return retry();
       }
     }
   } catch (e) {
@@ -88,24 +92,27 @@ async function request(path, options, attempt = 0) {
   if (attempt === 0 && isRetryable(error)) {
     console.warn(`[BridgeTalk] retrying ${path} after ${error.kind}: ${error.message}`);
     await sleep(RETRY_DELAY_MS);
-    return request(path, options, 1);
+    return retry();
   }
   throw error;
 }
 
 // Returns the assistant's reply text.
-export async function chat(messages, { model = MODELS.text, temperature = 0.3, json = false, maxTokens = 1500 } = {}) {
+export async function chat(
+  messages,
+  { model = MODELS.text, temperature = 0.3, json = false, maxTokens = 1500, maxRateLimitWaitMs, onWait } = {}
+) {
   const body = { model, messages, temperature, max_tokens: maxTokens };
   if (json) body.response_format = { type: 'json_object' };
   // gpt-oss reasons before answering and that counts against max_tokens; at the default effort a
   // long input could use up the budget and cut the JSON off. Low effort is plenty for translation.
   if (model.startsWith('openai/gpt-oss')) body.reasoning_effort = 'low';
 
-  const data = await request('/chat/completions', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
+  const data = await request(
+    '/chat/completions',
+    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) },
+    { maxRateLimitWaitMs, onWait }
+  );
   const content = data.choices?.[0]?.message?.content ?? '';
   if (!content.trim()) throw new AppError('bad_response', 'Model returned an empty reply');
   return content;
@@ -150,7 +157,11 @@ export async function transcribe(uri, languageCode) {
   return (data.text ?? '').trim();
 }
 
-export async function askAboutImage(base64, prompt) {
+// Vision has its own small tokens-per-minute limit on Groq's free tier, and every image costs
+// ~1,800 tokens whatever its size, so Scan waits out rate limits for longer than other calls.
+const VISION = { model: MODELS.vision, maxTokens: 1200, maxRateLimitWaitMs: 30000 };
+
+export async function askAboutImage(base64, prompt, { onWait } = {}) {
   const messages = [
     {
       role: 'user',
@@ -161,10 +172,10 @@ export async function askAboutImage(base64, prompt) {
     },
   ];
   try {
-    return parseJSON(await chat(messages, { model: MODELS.vision, temperature: 0.2 }));
+    return parseJSON(await chat(messages, { ...VISION, temperature: 0.2, onWait }));
   } catch (e) {
     if (!isJsonProblem(e)) throw e;
     console.warn('[BridgeTalk] vision reply was not JSON, retrying at temperature 0:', e.message);
-    return parseJSON(await chat(messages, { model: MODELS.vision, temperature: 0 }));
+    return parseJSON(await chat(messages, { ...VISION, temperature: 0, onWait }));
   }
 }

@@ -87,7 +87,7 @@ describe('friendlyMessage', () => {
     ['network', 'translate', "You're offline. Check your internet connection and try again."],
     ['timeout', 'translate', 'Warming up, try again in a few seconds.'],
     ['warming', 'scan', 'Warming up, try again in a few seconds.'],
-    ['rate_limit', 'talk', 'Lots of people are using BridgeTalk right now. Please wait a few seconds and try again.'],
+    ['rate_limit', 'talk', 'BridgeTalk is busy right now. Please wait about 30 seconds and try again.'],
     ['too_large', 'talk', 'That recording is too long. Try saying it in shorter parts.'],
     ['bad_response', 'scan', expect.stringContaining("couldn't read that photo")],
     ['audio_unclear', 'talk', expect.stringContaining("Didn't catch that")],

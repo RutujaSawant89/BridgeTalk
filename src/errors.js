@@ -13,7 +13,7 @@ export class AppError extends Error {
 const MESSAGES = {
   offline: "You're offline. Check your internet connection and try again.",
   warming: 'Warming up, try again in a few seconds.',
-  rate_limit: 'Lots of people are using BridgeTalk right now. Please wait a few seconds and try again.',
+  rate_limit: 'BridgeTalk is busy right now. Please wait about 30 seconds and try again.',
   audio_too_large: 'That recording is too long. Try saying it in shorter parts.',
   audio_unclear: "Didn't catch that. Try speaking louder and closer to the phone.",
   unreadable_photo: "We couldn't read that photo. Try again with more light, hold the phone steady and fill the frame with the text.",
