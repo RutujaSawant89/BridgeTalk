@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, Alert, KeyboardAvoidingView, Platform, StyleSheet } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, Alert, KeyboardAvoidingView, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import LanguagePicker from '../components/LanguagePicker';
@@ -52,7 +52,7 @@ export default function ProfileScreen({ navigation }) {
         </Text>
       </View>
 
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           <Text style={styles.section}>Languages</Text>
           <View style={styles.field}>
@@ -80,6 +80,7 @@ export default function ProfileScreen({ navigation }) {
               value={allergies}
               onChangeText={setAllergies}
               placeholder="e.g. peanuts, penicillin"
+              maxLength={200}
               placeholderTextColor={colors.muted}
               accessibilityLabel="Allergies"
             />
@@ -91,6 +92,7 @@ export default function ProfileScreen({ navigation }) {
               value={address}
               onChangeText={setAddress}
               placeholder="Hotel name and full address (paste it in the local script if you can)"
+              maxLength={400}
               placeholderTextColor={colors.muted}
               multiline
               textAlignVertical="top"

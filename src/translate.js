@@ -1,6 +1,8 @@
 import { chat, chatJSON } from './api';
 import { AppError } from './errors';
 import { VIBES } from './languages';
+import { devWarn } from './log';
+import { MAX_INPUT_CHARS, cleanText } from './text';
 
 const BASE_RULES = `You are a translation engine, not a chatbot.
 Rules:
@@ -25,6 +27,7 @@ const tokenBudget = (text, base, perChar, max) => Math.min(max, base + text.leng
 function requireText(text) {
   const input = String(text ?? '').trim();
   if (!input) throw new AppError('empty_input', 'Nothing to translate');
+  if (input.length > MAX_INPUT_CHARS) throw new AppError('too_long', `Input is ${input.length} characters`);
   return input;
 }
 
@@ -110,10 +113,10 @@ Return exactly this JSON shape:
       )
     );
     if (result.translation) return result;
-    console.warn('[BridgeTalk] translateOne JSON had no translation, using plain-text fallback');
+    devWarn('[BridgeTalk] translateOne JSON had no translation, using plain-text fallback');
   } catch (e) {
     if (!canFallBack(e)) throw e;
-    console.warn('[BridgeTalk] translateOne JSON failed, using plain-text fallback:', e.message);
+    devWarn('[BridgeTalk] translateOne JSON failed, using plain-text fallback:', e.message);
   }
 
   return { translation: await translatePlain(text, from, to, vibe, maxTokens), pronunciation: '' };
@@ -133,12 +136,7 @@ Reply with only the translation, nothing else: no quotes, labels, notes or pronu
     ],
     { temperature: 0.3, maxTokens }
   );
-  const translation = reply
-    .replace(/<think>[\s\S]*?<\/think>/gi, '')
-    .replace(/^\s*translation\s*:\s*/i, '')
-    .trim()
-    .replace(/^["“'](.*)["”']$/s, '$1')
-    .trim();
+  const translation = cleanText(reply);
   if (!translation) throw new AppError('bad_response', 'Plain-text fallback returned nothing');
   return translation;
 }

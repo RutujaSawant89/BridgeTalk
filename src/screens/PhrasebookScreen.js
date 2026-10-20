@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, FlatList, ScrollView, StyleSheet } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, FlatList, ScrollView, KeyboardAvoidingView, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import * as Speech from 'expo-speech';
@@ -10,6 +10,7 @@ import IconButton from '../components/IconButton';
 import { CATEGORIES, PHRASEBOOK_LANGUAGES, hasPhrasebook, phrasesFor } from '../phrasebook';
 import { getLanguage } from '../languages';
 import { usePrefs } from '../prefs';
+import { useOnLeave } from '../hooks';
 import { colors, fonts, icon, radius, scriptFont, sos, space, touch } from '../theme';
 
 const ALL = 'all';
@@ -39,6 +40,7 @@ export default function PhrasebookScreen({ navigation }) {
 
   useEffect(() => setLanguage(defaultLanguage), [defaultLanguage]);
   useEffect(() => () => Speech.stop(), []);
+  useOnLeave(() => Speech.stop());
 
   const phrases = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -124,6 +126,7 @@ export default function PhrasebookScreen({ navigation }) {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
+      <KeyboardAvoidingView style={styles.flex} behavior="padding">
       <FlatList
         data={phrases}
         keyExtractor={(p) => p.id}
@@ -134,7 +137,7 @@ export default function PhrasebookScreen({ navigation }) {
         renderItem={({ item }) => (
           <View style={styles.card}>
             <Text style={styles.en}>{item.en}</Text>
-            <Text style={[styles.translation, scriptFont(item.translation, 'bold')]}>{item.translation}</Text>
+            <Text style={[styles.translation, scriptFont(item.translation, 'bold', 22)]}>{item.translation}</Text>
             <Text style={styles.pron}>{item.pronunciation}</Text>
             <View style={styles.actions}>
               <ActionButton icon="volume-2" label="Listen" onPress={() => listen(item)} accessibilityLabel={`Listen to ${item.en} in ${language}`} />
@@ -143,6 +146,7 @@ export default function PhrasebookScreen({ navigation }) {
           </View>
         )}
       />
+      </KeyboardAvoidingView>
       <ShowToLocalModal phrase={shown} onClose={() => setShown(null)} />
     </SafeAreaView>
   );
@@ -150,6 +154,7 @@ export default function PhrasebookScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.bg },
+  flex: { flex: 1 },
   list: { padding: space.xl, paddingBottom: space.xxl, gap: space.md },
   header: { gap: space.md, marginBottom: space.xs },
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: space.sm },

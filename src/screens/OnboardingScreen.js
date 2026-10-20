@@ -52,7 +52,10 @@ export default function OnboardingScreen({ navigation }) {
     listRef.current?.scrollToIndex({ index: i, animated: true });
   };
 
+  const finishing = useRef(false);
   const finish = () => {
+    if (finishing.current) return; // a double tap would replace the screen twice
+    finishing.current = true;
     update({ onboarded: true, myLanguage, travelLanguage });
     navigation.replace('Home');
   };

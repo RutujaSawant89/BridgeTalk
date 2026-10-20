@@ -21,7 +21,7 @@ export default function ShowToLocalModal({ phrase, onClose }) {
     <Modal visible animationType="fade" onRequestClose={onClose} statusBarTranslucent>
       <SafeAreaView style={styles.safe}>
         <Pressable style={styles.body} onPress={onClose} accessibilityRole="button" accessibilityLabel="Close big text" accessibilityHint="Tap anywhere to close">
-          <Text style={[styles.big, scriptFont(phrase.translation, 'bold')]} adjustsFontSizeToFit numberOfLines={6} minimumFontScale={0.4}>
+          <Text style={[styles.big, scriptFont(phrase.translation, 'bold', 64)]} adjustsFontSizeToFit numberOfLines={6} minimumFontScale={0.4}>
             {phrase.translation}
           </Text>
           {phrase.pronunciation ? <Text style={styles.pron}>{phrase.pronunciation}</Text> : null}

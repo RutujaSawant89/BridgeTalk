@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, TextInput, ScrollView, Keyboard, StyleSheet } from 'react-native';
+import { View, Text, TextInput, ScrollView, Keyboard, KeyboardAvoidingView, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import * as Speech from 'expo-speech';
@@ -17,6 +17,8 @@ import { friendlyMessage } from '../errors';
 import { usePrefs } from '../prefs';
 import { useHistory } from '../history';
 import * as haptics from '../haptics';
+import { useOnLeave } from '../hooks';
+import { MAX_INPUT_CHARS } from '../text';
 import { colors, fonts, icon, radius, scriptFont, space } from '../theme';
 
 export default function TranslateScreen({ navigation }) {
@@ -38,6 +40,7 @@ export default function TranslateScreen({ navigation }) {
   useEffect(() => setTo(prefs.travelLanguage), [prefs.travelLanguage]);
   useEffect(() => recordVisit(), [recordVisit]);
   useEffect(() => () => Speech.stop(), []);
+  useOnLeave(() => Speech.stop());
 
   const vibe = VIBES.find((v) => v.id === vibeId);
   const current = result?.data[vibeId];
@@ -122,6 +125,7 @@ export default function TranslateScreen({ navigation }) {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
+      <KeyboardAvoidingView style={styles.flex} behavior="padding">
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <View style={styles.header}>
           <Text style={styles.title} accessibilityRole="header">
@@ -144,8 +148,14 @@ export default function TranslateScreen({ navigation }) {
           onChangeText={setText}
           multiline
           textAlignVertical="top"
+          maxLength={MAX_INPUT_CHARS}
           accessibilityLabel={`Text to translate from ${from}`}
         />
+        {text.length > MAX_INPUT_CHARS * 0.8 ? (
+          <Text style={styles.counter} accessibilityLiveRegion="polite">
+            {text.length} / {MAX_INPUT_CHARS}
+          </Text>
+        ) : null}
 
         <VibeChips layout="grid" value={vibeId} onChange={setVibeId} />
 
@@ -166,7 +176,7 @@ export default function TranslateScreen({ navigation }) {
               <Feather name={vibe.icon} size={12} color={colors.onVibe} />
               <Text style={styles.vibeTagText}>{vibe.label}</Text>
             </View>
-            <Text style={[styles.translation, scriptFont(current.translation, 'semibold')]} selectable>
+            <Text style={[styles.translation, scriptFont(current.translation, 'semibold', 26)]} selectable>
               {current.translation}
             </Text>
             {current.pronunciation ? (
@@ -203,6 +213,7 @@ export default function TranslateScreen({ navigation }) {
 
         {!result && !loading ? <PhraseOfTheDay language={to} streak={prefs.streak?.count ?? 0} onUse={tryPhrase} /> : null}
       </ScrollView>
+      </KeyboardAvoidingView>
       <ShareCardModal item={sharing} onClose={() => setSharing(null)} />
     </SafeAreaView>
   );
@@ -210,6 +221,8 @@ export default function TranslateScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.bg },
+  flex: { flex: 1 },
+  counter: { color: colors.muted, fontSize: 12, fontFamily: fonts.medium, textAlign: 'right', marginTop: -space.sm },
   content: { padding: space.xl, paddingBottom: space.xxl + space.sm, gap: space.lg },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   title: { color: colors.text, fontSize: 30, fontFamily: fonts.display, letterSpacing: -0.5 },

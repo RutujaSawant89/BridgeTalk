@@ -1,3 +1,4 @@
+import { devWarn } from './log';
 // Every failure the app can hit is an AppError with a `kind`. Screens show friendlyMessage(),
 // never the raw API text; the technical detail only goes to the console.
 
@@ -18,6 +19,7 @@ const MESSAGES = {
   audio_unclear: "Didn't catch that. Try speaking louder and closer to the phone.",
   unreadable_photo: "We couldn't read that photo. Try again with more light, hold the phone steady and fill the frame with the text.",
   empty_input: 'Type something to translate first.',
+  too_long: 'That is a bit long. Please keep it under 2,000 characters.',
   generic: 'Something went wrong. Please try again.',
 };
 
@@ -42,6 +44,8 @@ function messageKind(kind, context) {
       return context === 'scan' ? 'unreadable_photo' : 'generic';
     case 'empty_input':
       return 'empty_input';
+    case 'too_long':
+      return 'too_long';
     default:
       return 'generic';
   }
@@ -49,7 +53,7 @@ function messageKind(kind, context) {
 
 export function friendlyMessage(error, context = 'app') {
   const kind = error?.kind ?? (error?.name === 'AbortError' ? 'timeout' : 'unknown');
-  console.warn(`[BridgeTalk:${context}] ${kind}`, {
+  devWarn(`[BridgeTalk:${context}] ${kind}`, {
     message: error?.message,
     status: error?.status,
     code: error?.code,

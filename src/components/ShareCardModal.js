@@ -6,6 +6,7 @@ import { captureRef } from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
 import { getLanguage, VIBES } from '../languages';
 import { colors, fonts, gradient, icon, radius, scriptFont, space, touch } from '../theme';
+import { devWarn } from '../log';
 
 // item: { original, translation, pronunciation, from, to, vibeId }
 export default function ShareCardModal({ item, onClose }) {
@@ -30,7 +31,7 @@ export default function ShareCardModal({ item, onClose }) {
         await Share.share({ message: asText });
       }
     } catch (e) {
-      console.warn('[BridgeTalk] share image failed', e);
+      devWarn('[BridgeTalk] share image failed', e);
       setError("Couldn't create the image. You can share it as text instead.");
     } finally {
       setBusy(false);
@@ -57,7 +58,7 @@ export default function ShareCardModal({ item, onClose }) {
               ) : null}
             </View>
             <Text style={[styles.original, scriptFont(item.original)]}>“{item.original}”</Text>
-            <Text style={[styles.translation, scriptFont(item.translation, 'bold')]}>{item.translation}</Text>
+            <Text style={[styles.translation, scriptFont(item.translation, 'bold', 30)]}>{item.translation}</Text>
             {item.pronunciation ? <Text style={styles.pron}>{item.pronunciation}</Text> : null}
             <View style={styles.footer}>
               <Text style={styles.footerText}>Translated with</Text>

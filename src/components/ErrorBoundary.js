@@ -3,6 +3,7 @@ import { View, Text, StyleSheet } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import GradientButton from './GradientButton';
 import { colors, fonts, icon, space } from '../theme';
+import { devError } from '../log';
 
 // Catches render crashes anywhere below it and offers a restart instead of a blank screen.
 export default class ErrorBoundary extends React.Component {
@@ -13,7 +14,7 @@ export default class ErrorBoundary extends React.Component {
   }
 
   componentDidCatch(error, info) {
-    console.error('[BridgeTalk] crash caught by ErrorBoundary', error, info?.componentStack);
+    devError('[BridgeTalk] crash caught by ErrorBoundary', error, info?.componentStack);
   }
 
   restart = () => this.setState((s) => ({ error: null, resetKey: s.resetKey + 1 }));

@@ -35,7 +35,7 @@ export default function PhraseOfTheDay({ language, streak, onUse }) {
       <Text style={styles.en}>{phrase.en}</Text>
       {phrase.translation ? (
         <>
-          <Text style={[styles.translation, scriptFont(phrase.translation, 'bold')]}>
+          <Text style={[styles.translation, scriptFont(phrase.translation, 'bold', 22)]}>
             {flag} {phrase.translation}
           </Text>
           <Text style={styles.pron}>{phrase.pronunciation}</Text>

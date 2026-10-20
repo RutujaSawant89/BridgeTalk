@@ -11,6 +11,7 @@ import { getLanguage } from '../languages';
 import { loadJSON, saveJSON } from '../storage';
 import { usePrefs } from '../prefs';
 import { fonts, icon, radius, scriptFont, space, sos, touch } from '../theme';
+import { devWarn } from '../log';
 
 const ENGLISH = sosText('English');
 const cacheKey = (language) => `bridgetalk:sos:${language}`;
@@ -73,7 +74,7 @@ export default function SOSScreen({ navigation }) {
         }
         saveJSON(cacheKey(language), next);
       } catch (e) {
-        console.warn('[BridgeTalk:sos] translation failed', e?.kind, e?.message);
+        devWarn('[BridgeTalk:sos] translation failed', e?.kind, e?.message);
         if (!cancelled) setNotice(`Couldn't translate right now${needLines ? ', showing English' : ''}. Connect to the internet once and it will be saved for offline use.`);
       } finally {
         if (!cancelled) setLoading(false);
@@ -124,8 +125,8 @@ export default function SOSScreen({ navigation }) {
 
         {prefs.address ? (
           <View style={styles.block}>
-            <Text style={[styles.line, scriptFont(shown.address, 'bold')]}>{shown.address}</Text>
-            <Text style={[styles.address, scriptFont(prefs.address, 'bold')]} selectable>
+            <Text style={[styles.line, scriptFont(shown.address, 'bold', 26)]}>{shown.address}</Text>
+            <Text style={[styles.address, scriptFont(prefs.address, 'bold', 24)]} selectable>
               {prefs.address}
             </Text>
             <Text style={styles.english}>{ENGLISH.address}</Text>
@@ -166,7 +167,7 @@ export default function SOSScreen({ navigation }) {
 function Line({ text, english, big }) {
   return (
     <View style={styles.block}>
-      <Text style={[styles.line, big && styles.lineBig, scriptFont(text, 'bold')]}>{text}</Text>
+      <Text style={[styles.line, big && styles.lineBig, scriptFont(text, 'bold', big ? 34 : 26)]}>{text}</Text>
       {english && english !== text ? <Text style={styles.english}>{english}</Text> : null}
     </View>
   );

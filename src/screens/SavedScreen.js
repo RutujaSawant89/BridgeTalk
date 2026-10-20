@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, FlatList, Alert, StyleSheet } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, FlatList, Alert, KeyboardAvoidingView, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import * as Speech from 'expo-speech';
@@ -9,6 +9,7 @@ import IconButton from '../components/IconButton';
 import ShareCardModal from '../components/ShareCardModal';
 import { SkeletonCard } from '../components/Skeleton';
 import { useHistory, searchHistory, MAX_HISTORY } from '../history';
+import { useOnLeave } from '../hooks';
 import { getLanguage, VIBES } from '../languages';
 import { colors, fonts, icon, radius, scriptFont, space, touch } from '../theme';
 
@@ -31,6 +32,7 @@ export default function SavedScreen({ navigation }) {
   const [tab, setTab] = useState('saved');
   const [query, setQuery] = useState('');
   const [sharing, setSharing] = useState(null);
+  useOnLeave(() => Speech.stop());
 
   const visible = useMemo(() => {
     const base = tab === 'saved' ? items.filter((i) => i.starred) : items;
@@ -110,6 +112,7 @@ export default function SavedScreen({ navigation }) {
 
   return (
     <SafeAreaView style={styles.safe}>
+      <KeyboardAvoidingView style={styles.flex} behavior="padding">
       {!loaded ? (
         <View style={styles.list}>
           {header}
@@ -138,7 +141,7 @@ export default function SavedScreen({ navigation }) {
                 <Text style={[styles.original, scriptFont(item.original)]} numberOfLines={2}>
                   {item.original}
                 </Text>
-                <Text style={[styles.translation, scriptFont(item.translation, 'semibold')]} selectable>
+                <Text style={[styles.translation, scriptFont(item.translation, 'semibold', 20)]} selectable>
                   {item.translation}
                 </Text>
                 {item.pronunciation ? <Text style={styles.pron}>{item.pronunciation}</Text> : null}
@@ -159,6 +162,7 @@ export default function SavedScreen({ navigation }) {
           }}
         />
       )}
+      </KeyboardAvoidingView>
       <ShareCardModal item={sharing} onClose={() => setSharing(null)} />
     </SafeAreaView>
   );
@@ -166,6 +170,7 @@ export default function SavedScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.bg },
+  flex: { flex: 1 },
   list: { padding: space.xl, paddingTop: space.md, paddingBottom: space.xxl, gap: space.md },
   header: { gap: space.md, marginBottom: space.xs },
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: space.md },

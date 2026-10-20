@@ -81,17 +81,32 @@ const SCRIPTS = [
 
 const isBold = (weight) => weight === 'semibold' || weight === 'bold' || weight === 'display';
 
+// Scripts with tall marks above and below the line (Indic, Thai, Arabic, Hebrew) get clipped on
+// Android when the line height is tight, so they need more room than Latin or CJK text.
+const LINE_HEIGHT = { tall: 1.6, normal: 1.35 };
+
 // Font for a piece of content: Inter (or the display face) for Latin text, the matching
 // Noto family for other scripts. Returns a style object to spread into a Text style.
-export function scriptFont(text, weight = 'regular') {
+// Pass `size` to also get fontSize and a script-aware lineHeight.
+export function scriptFont(text, weight = 'regular', size) {
   const value = String(text ?? '');
+  let style = null;
+  let tall = false;
   for (const [pattern, family] of SCRIPTS) {
     if (pattern.test(value)) {
-      if (!family) return { fontFamily: undefined, fontWeight: isBold(weight) ? '700' : '400' };
-      return { fontFamily: `${family}_${isBold(weight) ? '700Bold' : '400Regular'}` };
+      tall = Boolean(family) && family !== 'NotoSans';
+      style = family
+        ? { fontFamily: `${family}_${isBold(weight) ? '700Bold' : '400Regular'}` }
+        : { fontFamily: undefined, fontWeight: isBold(weight) ? '700' : '400' };
+      break;
     }
   }
-  return { fontFamily: fonts[weight] ?? fonts.regular };
+  style = style ?? { fontFamily: fonts[weight] ?? fonts.regular };
+  if (size) {
+    style.fontSize = size;
+    style.lineHeight = Math.round(size * (tall ? LINE_HEIGHT.tall : LINE_HEIGHT.normal));
+  }
+  return style;
 }
 
 // Icon sizes for Feather icons

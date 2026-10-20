@@ -26,6 +26,26 @@ export function searchHistory(items, query) {
   );
 }
 
+const KINDS = ['translate', 'talk'];
+
+// Drop saved items that are missing what the Saved screen needs (old versions or corrupt data).
+export function sanitizeHistory(saved) {
+  if (!Array.isArray(saved)) return [];
+  return saved
+    .filter((i) => i && typeof i === 'object' && typeof i.id === 'string' && typeof i.translation === 'string' && i.translation)
+    .map((i) => ({
+      ...i,
+      kind: KINDS.includes(i.kind) ? i.kind : 'translate',
+      original: String(i.original ?? ''),
+      pronunciation: String(i.pronunciation ?? ''),
+      from: String(i.from ?? ''),
+      to: String(i.to ?? ''),
+      starred: i.starred === true,
+      at: Number.isFinite(i.at) ? i.at : Date.now(),
+    }))
+    .slice(0, MAX_HISTORY * 2);
+}
+
 const HistoryContext = createContext(null);
 
 // Item: { id, kind: 'translate' | 'talk', original, translation, pronunciation, from, to, vibeId, starred, at }
@@ -36,7 +56,7 @@ export function HistoryProvider({ children }) {
 
   useEffect(() => {
     loadJSON(KEY, []).then((saved) => {
-      setItems(Array.isArray(saved) ? saved : []);
+      setItems(trimHistory(sanitizeHistory(saved)));
       setLoaded(true);
     });
   }, []);

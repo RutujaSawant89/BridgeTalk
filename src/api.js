@@ -1,6 +1,7 @@
 import { API_URL, GROQ_API_KEY, MODELS } from './config';
 import { AppError } from './errors';
 import { parseJSON } from './json';
+import { devWarn } from './log';
 
 export { parseJSON };
 
@@ -14,11 +15,15 @@ const RETRY_DELAY_MS = 1500;
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+// The timeout covers the whole exchange, including reading the body: a server can send headers
+// and then stall, and response.text() would otherwise wait forever.
 async function fetchWithTimeout(url, options) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
   try {
-    return await fetch(url, { ...options, signal: controller.signal });
+    const response = await fetch(url, { ...options, signal: controller.signal });
+    const raw = await response.text();
+    return { response, raw };
   } catch (e) {
     if (e?.name === 'AbortError') throw new AppError('timeout', `No response after ${TIMEOUT_MS / 1000}s: ${url}`);
     throw new AppError('network', e?.message || 'Network request failed');
@@ -61,11 +66,10 @@ async function request(path, options, { attempt = 0, maxRateLimitWaitMs = MAX_RA
 
   let error;
   try {
-    const response = await fetchWithTimeout(`${BASE_URL}${path}`, {
+    const { response, raw } = await fetchWithTimeout(`${BASE_URL}${path}`, {
       ...options,
       headers: { ...authHeaders(), ...options.headers },
     });
-    const raw = await response.text();
     let data = null;
     try {
       data = raw ? JSON.parse(raw) : null;
@@ -90,7 +94,7 @@ async function request(path, options, { attempt = 0, maxRateLimitWaitMs = MAX_RA
   }
 
   if (attempt === 0 && isRetryable(error)) {
-    console.warn(`[BridgeTalk] retrying ${path} after ${error.kind}: ${error.message}`);
+    devWarn(`[BridgeTalk] retrying ${path} after ${error.kind}: ${error.message}`);
     await sleep(RETRY_DELAY_MS);
     return retry();
   }
@@ -127,7 +131,7 @@ export async function chatJSON(messages, options = {}) {
     return parseJSON(await chat(messages, { ...options, json: true }));
   } catch (e) {
     if (!isJsonProblem(e)) throw e;
-    console.warn('[BridgeTalk] JSON mode failed, retrying without response_format:', e.message);
+    devWarn('[BridgeTalk] JSON mode failed, retrying without response_format:', e.message);
     if (e.failedGeneration) {
       try {
         return parseJSON(e.failedGeneration);
@@ -139,7 +143,7 @@ export async function chatJSON(messages, options = {}) {
     return parseJSON(await chat(messages, { ...options, json: false }));
   } catch (e) {
     if (!isJsonProblem(e)) throw e;
-    console.warn('[BridgeTalk] plain reply was not JSON, retrying at temperature 0:', e.message);
+    devWarn('[BridgeTalk] plain reply was not JSON, retrying at temperature 0:', e.message);
   }
 
   return parseJSON(await chat(messages, { ...options, json: false, temperature: 0 }));
@@ -175,7 +179,7 @@ export async function askAboutImage(base64, prompt, { onWait } = {}) {
     return parseJSON(await chat(messages, { ...VISION, temperature: 0.2, onWait }));
   } catch (e) {
     if (!isJsonProblem(e)) throw e;
-    console.warn('[BridgeTalk] vision reply was not JSON, retrying at temperature 0:', e.message);
+    devWarn('[BridgeTalk] vision reply was not JSON, retrying at temperature 0:', e.message);
     return parseJSON(await chat(messages, { ...VISION, temperature: 0, onWait }));
   }
 }

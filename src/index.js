@@ -16,6 +16,7 @@ export default function Home() {
     <Tab.Navigator
       screenOptions={({ route }) => ({
         headerShown: false,
+        tabBarHideOnKeyboard: true,
         tabBarStyle: { backgroundColor: colors.surface, borderTopColor: colors.border, minHeight: 60 },
         tabBarItemStyle: { minHeight: 44, paddingTop: 4 },
         tabBarLabelStyle: { fontFamily: fonts.semibold, fontSize: 11 },

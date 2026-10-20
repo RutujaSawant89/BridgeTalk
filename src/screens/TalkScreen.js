@@ -9,6 +9,7 @@ import {
   Animated,
   Easing,
   ActivityIndicator,
+  ScrollView,
   StyleSheet,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -26,9 +27,14 @@ import { friendlyMessage } from '../errors';
 import { usePrefs } from '../prefs';
 import { useHistory } from '../history';
 import * as haptics from '../haptics';
+import { useOnLeave, permissionAlert } from '../hooks';
+import { isMeaningful } from '../text';
 import { colors, fonts, icon, radius, scriptFont, sos, space, touch } from '../theme';
+import { devWarn } from '../log';
 
 const RECORDING = sos.bg;
+const MIN_RECORDING_MS = 500; // shorter taps are almost always accidental
+const MAX_RECORDING_MS = 60000; // a forgotten recording stops itself after a minute
 
 function speak(text, languageName) {
   if (!text) return;
@@ -99,6 +105,7 @@ function Half({ side, language, onLanguageChange, heard, said, recording, micDis
             <Text style={styles.busyText}>Translating…</Text>
           </View>
         ) : heard ? (
+          <ScrollView style={styles.heardScroll} contentContainerStyle={styles.heardScrollContent}>
           <TouchableOpacity
             style={styles.replay}
             onPress={() => speak(heard, language)}
@@ -106,12 +113,13 @@ function Half({ side, language, onLanguageChange, heard, said, recording, micDis
             accessibilityLabel={`Replay: ${heard}`}
             accessibilityHint="Plays the translation again"
           >
-            <Text style={[styles.heard, scriptFont(heard, 'bold')]}>{heard}</Text>
+            <Text style={[styles.heard, scriptFont(heard, 'bold', 28)]}>{heard}</Text>
             <View style={styles.replayRow}>
               <Feather name="volume-2" size={icon.sm - 2} color={colors.muted} />
               <Text style={styles.replayHint}>Tap to replay</Text>
             </View>
           </TouchableOpacity>
+          </ScrollView>
         ) : (
           <Text style={styles.placeholder}>
             {recording ? 'Listening… tap again when done' : 'Tap the mic and speak'}
@@ -142,6 +150,9 @@ export default function TalkScreen() {
   const [history, setHistory] = useState([]);
   const [historyOpen, setHistoryOpen] = useState(false);
   const working = useRef(false); // guards against double taps while async work is in flight
+  const recordingRef = useRef(null); // { side, startedAt } while the mic is on
+  const autoStopTimer = useRef(null);
+  const onMicRef = useRef(null);
 
   useEffect(
     () => () => {
@@ -151,13 +162,39 @@ export default function TalkScreen() {
     []
   );
 
+  const clearAutoStop = () => {
+    if (autoStopTimer.current) clearTimeout(autoStopTimer.current);
+    autoStopTimer.current = null;
+  };
+
+  // Stops the mic without translating (leaving the screen, app in background, errors).
+  const cancelRecording = async () => {
+    clearAutoStop();
+    const wasRecording = Boolean(recordingRef.current);
+    recordingRef.current = null;
+    setRecordingSide(null);
+    if (wasRecording) {
+      try {
+        await recorder.stop();
+      } catch {}
+    }
+    setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true }).catch(() => {});
+  };
+
+  useOnLeave(() => {
+    Speech.stop();
+    if (recordingRef.current) cancelRecording();
+  });
+
+  useEffect(() => () => clearAutoStop(), []);
+
   const other = (side) => (side === 'top' ? 'bottom' : 'top');
   const latestFrom = (side) => history.find((m) => m.speaker === side);
 
   const startRecording = async (side) => {
-    const { granted } = await requestRecordingPermissionsAsync();
+    const { granted, canAskAgain } = await requestRecordingPermissionsAsync();
     if (!granted) {
-      Alert.alert('Microphone needed', 'Please allow microphone access in Settings so BridgeTalk can hear you.');
+      permissionAlert('Microphone needed', 'Please allow microphone access so BridgeTalk can hear you.', canAskAgain);
       return;
     }
     Speech.stop();
@@ -165,17 +202,26 @@ export default function TalkScreen() {
     await recorder.prepareToRecordAsync();
     recorder.record();
     haptics.tap();
+    recordingRef.current = { side, startedAt: Date.now() };
     setRecordingSide(side);
+    autoStopTimer.current = setTimeout(() => onMicRef.current?.(side), MAX_RECORDING_MS);
   };
 
   const stopAndTranslate = async (side) => {
     const fromLang = languages[side];
     const toLang = languages[other(side)];
 
+    clearAutoStop();
+    const startedAt = recordingRef.current?.startedAt ?? Date.now();
+    recordingRef.current = null;
     await recorder.stop();
     haptics.tap();
     await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true });
     setRecordingSide(null);
+    if (Date.now() - startedAt < MIN_RECORDING_MS) {
+      Alert.alert('Hold on a moment', 'Tap the mic, say your sentence, then tap again when you are done.');
+      return;
+    }
     const uri = recorder.uri;
     if (!uri) {
       Alert.alert("Didn't catch that", 'Try again and speak a little louder.');
@@ -185,7 +231,7 @@ export default function TalkScreen() {
     setBusy(true);
     try {
       const text = await transcribe(uri, getLanguage(fromLang)?.whisper);
-      if (!text || text.replace(/[\s.,!?…]/g, '').length < 2) {
+      if (!isMeaningful(text)) {
         Alert.alert("Didn't catch that", 'Try speaking louder and closer to the phone.');
         return;
       }
@@ -223,14 +269,15 @@ export default function TalkScreen() {
       if (recordingSide === side) await stopAndTranslate(side);
       else if (!recordingSide && !busy) await startRecording(side);
     } catch (e) {
-      setRecordingSide(null);
-      setAudioModeAsync({ allowsRecording: false }).catch(() => {});
-      console.warn('[BridgeTalk:talk] microphone error', e);
+      await cancelRecording();
+      devWarn('[BridgeTalk:talk] microphone error', e);
       Alert.alert('Microphone problem', 'Could not use the microphone. Please try again.');
     } finally {
       working.current = false;
     }
   };
+
+  onMicRef.current = onMic;
 
   const halfProps = (side) => ({
     side,
@@ -302,7 +349,7 @@ export default function TalkScreen() {
                     {getLanguage(item.fromLang)?.flag} {item.fromLang} → {getLanguage(item.toLang)?.flag} {item.toLang}
                   </Text>
                   <Text style={[styles.bubbleOriginal, scriptFont(item.original)]}>{item.original}</Text>
-                  <Text style={[styles.bubbleTranslation, scriptFont(item.translation, 'semibold')]}>{item.translation}</Text>
+                  <Text style={[styles.bubbleTranslation, scriptFont(item.translation, 'semibold', 18)]}>{item.translation}</Text>
                   {item.pronunciation ? <Text style={styles.bubblePron}>{item.pronunciation}</Text> : null}
                   <View style={styles.replayRow}>
                     <Feather name="volume-2" size={icon.sm - 2} color={colors.onAccentSoft} />
@@ -325,6 +372,8 @@ const styles = StyleSheet.create({
   halfHeader: { flexDirection: 'row', width: '72%' },
   messageArea: { flex: 1, width: '100%', justifyContent: 'center', alignItems: 'center', paddingVertical: space.sm, gap: space.sm },
   replay: { minHeight: touch, justifyContent: 'center' },
+  heardScroll: { flexGrow: 0, width: '100%' },
+  heardScrollContent: { flexGrow: 1, justifyContent: 'center' },
   heard: { color: colors.text, fontSize: 28, textAlign: 'center', lineHeight: 38 },
   replayRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, marginTop: space.xs },
   replayHint: { color: colors.muted, fontSize: 12, fontFamily: fonts.medium, textAlign: 'center' },

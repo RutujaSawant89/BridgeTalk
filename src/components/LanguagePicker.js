@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Modal, View, Text, TextInput, TouchableOpacity, FlatList, Pressable, StyleSheet } from 'react-native';
+import { Modal, View, Text, TextInput, TouchableOpacity, FlatList, Pressable, KeyboardAvoidingView, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { LANGUAGES, getLanguage } from '../languages';
@@ -46,7 +46,7 @@ export default function LanguagePicker({ value, onChange, label, rotated = false
 
       {/* A rotated sheet sits at the top of the screen, so it fades in rather than sliding up from the bottom */}
       <Modal visible={open} transparent animationType={rotated ? 'fade' : 'slide'} onRequestClose={close}>
-        <View style={[styles.modalRoot, rotated && styles.rotated]}>
+        <KeyboardAvoidingView style={[styles.modalRoot, rotated && styles.rotated]} behavior={rotated ? undefined : 'padding'}>
           <Pressable style={styles.backdrop} onPress={close} accessibilityRole="button" accessibilityLabel="Close language list" />
           <View style={[styles.sheet, { paddingBottom: (rotated ? insets.top : insets.bottom) + space.md }]}>
             <View style={styles.handle} />
@@ -55,6 +55,7 @@ export default function LanguagePicker({ value, onChange, label, rotated = false
               <Feather name="search" size={icon.sm + 2} color={colors.muted} />
               <TextInput
                 style={styles.search}
+                maxLength={40}
                 placeholder="Search languages"
                 placeholderTextColor={colors.muted}
                 value={query}
@@ -87,7 +88,7 @@ export default function LanguagePicker({ value, onChange, label, rotated = false
               ListEmptyComponent={<Text style={styles.empty}>No languages found</Text>}
             />
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </>
   );

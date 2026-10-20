@@ -1,5 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { loadJSON, saveJSON } from './storage';
+import { LANGUAGES } from './languages';
 
 const KEY = 'bridgetalk:prefs';
 
@@ -11,6 +12,25 @@ const DEFAULTS = {
   address: '',
   streak: { count: 0, last: null }, // last = 'YYYY-MM-DD' of the most recent visit
 };
+
+const isLanguage = (name) => LANGUAGES.some((l) => l.name === name);
+const isText = (v) => typeof v === 'string';
+
+// Saved data can be from an older version or corrupt: keep only known fields of the right type.
+export function sanitizePrefs(saved) {
+  const s = saved && typeof saved === 'object' && !Array.isArray(saved) ? saved : {};
+  return {
+    onboarded: s.onboarded === true,
+    myLanguage: isLanguage(s.myLanguage) ? s.myLanguage : DEFAULTS.myLanguage,
+    travelLanguage: isLanguage(s.travelLanguage) ? s.travelLanguage : DEFAULTS.travelLanguage,
+    allergies: isText(s.allergies) ? s.allergies.slice(0, 200) : '',
+    address: isText(s.address) ? s.address.slice(0, 400) : '',
+    streak:
+      s.streak && Number.isFinite(s.streak.count) && (s.streak.last === null || isText(s.streak.last))
+        ? { count: s.streak.count, last: s.streak.last }
+        : DEFAULTS.streak,
+  };
+}
 
 const PrefsContext = createContext(null);
 
@@ -33,7 +53,7 @@ export function PrefsProvider({ children }) {
 
   useEffect(() => {
     loadJSON(KEY, {}).then((saved) => {
-      setPrefs({ ...DEFAULTS, ...saved });
+      setPrefs(sanitizePrefs(saved));
       setLoaded(true);
     });
   }, []);

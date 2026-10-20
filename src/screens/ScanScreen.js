@@ -8,23 +8,37 @@ import * as Speech from 'expo-speech';
 import LanguagePicker from '../components/LanguagePicker';
 import { getLanguage } from '../languages';
 import { SCAN_MODES, explainImage } from '../scan';
-import { friendlyMessage } from '../errors';
+import { AppError, friendlyMessage } from '../errors';
+import { useOnLeave, permissionAlert } from '../hooks';
+import { base64Bytes } from '../text';
 import { SkeletonCard } from '../components/Skeleton';
 import { usePrefs } from '../prefs';
 import * as haptics from '../haptics';
 import { colors, fonts, icon as iconSize, radius, scriptFont, space, touch } from '../theme';
 
 const MAX_SIDE = 1400;
+const MAX_UPLOAD_BYTES = 1024 * 1024;
+const QUALITY_STEPS = [0.8, 0.6, 0.45];
 
-// Shrinks the longest side to MAX_SIDE and returns a JPEG { uri, base64 }.
+// Shrinks the longest side to MAX_SIDE and re-compresses until the JPEG is under 1 MB.
+// Returns { uri, base64 }. Images that can't be decoded become an "unreadable photo" error.
 async function prepareImage(asset) {
-  const context = ImageManipulator.manipulate(asset.uri);
-  if (Math.max(asset.width || 0, asset.height || 0) > MAX_SIDE) {
-    context.resize(asset.width >= asset.height ? { width: MAX_SIDE } : { height: MAX_SIDE });
+  try {
+    const context = ImageManipulator.manipulate(asset.uri);
+    if (Math.max(asset.width || 0, asset.height || 0) > MAX_SIDE) {
+      context.resize(asset.width >= asset.height ? { width: MAX_SIDE } : { height: MAX_SIDE });
+    }
+    const image = await context.renderAsync();
+    let saved;
+    for (const compress of QUALITY_STEPS) {
+      saved = await image.saveAsync({ format: SaveFormat.JPEG, compress, base64: true });
+      if (base64Bytes(saved.base64) <= MAX_UPLOAD_BYTES) break;
+    }
+    if (!saved?.base64) throw new Error('No image data');
+    return { uri: saved.uri, base64: saved.base64 };
+  } catch (e) {
+    throw new AppError('bad_request', `Could not prepare image: ${e?.message}`);
   }
-  const image = await context.renderAsync();
-  const saved = await image.saveAsync({ format: SaveFormat.JPEG, compress: 0.8, base64: true });
-  return { uri: saved.uri, base64: saved.base64 };
 }
 
 function Section({ icon, title, items, color = colors.text, iconColor = colors.accent }) {
@@ -60,6 +74,10 @@ export default function ScanScreen() {
   const inFlight = useRef(false); // blocks double taps while the picker or a request is open
 
   useEffect(() => () => Speech.stop(), []);
+  useOnLeave(() => {
+    Speech.stop();
+    setSpeaking(false);
+  });
 
   const stopSpeaking = () => {
     Speech.stop();
@@ -73,9 +91,10 @@ export default function ScanScreen() {
     try {
       let picked;
       if (source === 'camera') {
-        const { granted } = await ImagePicker.requestCameraPermissionsAsync();
+        const { granted, canAskAgain } = await ImagePicker.requestCameraPermissionsAsync();
         if (!granted) {
-          setError('Camera permission is needed to take a photo. You can allow it in Settings.');
+          setError('Camera permission is needed to take a photo. You can still pick one from the gallery.');
+          permissionAlert('Camera needed', 'Please allow camera access so BridgeTalk can read photos for you.', canAskAgain);
           return;
         }
         picked = await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 1 });

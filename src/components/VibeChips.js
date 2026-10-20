@@ -23,7 +23,7 @@ export default function VibeChips({ value, onChange, layout = 'row' }) {
         accessibilityState={{ selected: active }}
       >
         <Feather name={vibe.icon} size={layout === 'grid' ? icon.md : icon.sm} color={tint} />
-        <Text style={[styles.label, layout === 'grid' && styles.labelGrid, { color: active ? colors.onVibe : colors.text }]} numberOfLines={1}>
+        <Text style={[styles.label, layout === 'grid' && styles.labelGrid, { color: active ? colors.onVibe : colors.text }]} numberOfLines={layout === 'grid' ? 2 : 1}>
           {vibe.label}
         </Text>
       </TouchableOpacity>
@@ -63,5 +63,5 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   label: { fontSize: 14, fontFamily: fonts.semibold },
-  labelGrid: { fontSize: 12 },
+  labelGrid: { fontSize: 12, textAlign: 'center', lineHeight: 15 },
 });
