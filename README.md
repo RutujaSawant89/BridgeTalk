@@ -90,7 +90,7 @@ It listens on port 3000 (or `PORT`). On a real phone use your computer's LAN IP,
 npm test
 ```
 
-Jest covers `parseJSON` (fences, `<think>` tags, extra text, non-Latin scripts, invalid JSON), the friendly error messages, and the API fallback chain.
+149 Jest tests (with `@testing-library/react-native`) cover `parseJSON`, `cleanText`, the friendly error messages, the API fallback chain (success, invalid JSON, 401, 429, 500, timeout, offline), saved-data sanitizing, and render tests for every screen, including buttons being disabled while a request runs. See [AUDIT.md](AUDIT.md) for the pre-release audit.
 
 How the app stays usable when things go wrong:
 
