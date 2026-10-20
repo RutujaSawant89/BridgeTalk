@@ -20,6 +20,7 @@ import LanguagePicker from '../components/LanguagePicker';
 import VibeChips from '../components/VibeChips';
 import IconButton from '../components/IconButton';
 import EmptyState from '../components/EmptyState';
+import ReportButton from '../components/ReportButton';
 import { getLanguage } from '../languages';
 import { transcribe } from '../api';
 import { translateOne } from '../translate';
@@ -351,9 +352,16 @@ export default function TalkScreen() {
                   <Text style={[styles.bubbleOriginal, scriptFont(item.original)]}>{item.original}</Text>
                   <Text style={[styles.bubbleTranslation, scriptFont(item.translation, 'semibold', 18)]}>{item.translation}</Text>
                   {item.pronunciation ? <Text style={styles.bubblePron}>{item.pronunciation}</Text> : null}
-                  <View style={styles.replayRow}>
-                    <Feather name="volume-2" size={icon.sm - 2} color={colors.onAccentSoft} />
-                    <Text style={[styles.replayHint, styles.bubbleReplay]}>Tap to replay</Text>
+                  <View style={styles.bubbleFooter}>
+                    <View style={styles.replayRow}>
+                      <Feather name="volume-2" size={icon.sm - 2} color={colors.onAccentSoft} />
+                      <Text style={[styles.replayHint, styles.bubbleReplay]}>Tap to replay</Text>
+                    </View>
+                    <ReportButton
+                      compact
+                      tint={colors.onAccentSoft}
+                      item={{ feature: 'talk', result: item.translation, from: item.fromLang, to: item.toLang, vibe: item.vibeId }}
+                    />
                   </View>
                 </TouchableOpacity>
               );
@@ -444,4 +452,5 @@ const styles = StyleSheet.create({
   bubbleTranslation: { color: colors.onAccent, fontSize: 18 },
   bubblePron: { color: colors.onAccentSoft, fontSize: 13, fontFamily: fonts.regular },
   bubbleReplay: { color: colors.onAccentSoft },
+  bubbleFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space.md },
 });

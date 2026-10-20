@@ -234,6 +234,96 @@ describe('Scan', () => {
   });
 });
 
+const jsonOk = { ok: true, status: 200, text: async () => JSON.stringify({ ok: true }) };
+const reportCall = () => fetch.mock.calls.find(([url]) => url.endsWith('/api/report'));
+
+describe('Report', () => {
+  const ALL = JSON.stringify({
+    formal: { translation: 'Muy buenos días', pronunciation: 'mwee' },
+    casual: { translation: 'Buen día, amigo', pronunciation: 'bwen' },
+    local: { translation: 'Qué onda', pronunciation: 'keh' },
+    filmy: { translation: '¡Qué día tan glorioso!', pronunciation: 'keh' },
+    culture_tip: 'tip',
+  });
+
+  // Each test uses its own sentence: identical requests within 2 s share one cached call
+  async function translatedScreen(text) {
+    fetch.mockResolvedValueOnce(reply(ALL));
+    await renderScreen(TranslateScreen);
+    fireEvent.changeText(screen.getByLabelText('Text to translate from English'), text);
+    fireEvent.press(screen.getByLabelText('Translate'));
+    await screen.findByText('Buen día, amigo', {}, { timeout: 10000 });
+  }
+
+  it('Translate: flag → pick a reason → note → sends only the AI result → thanks', async () => {
+    await translatedScreen('Good morning, friend (report test)');
+    fireEvent.press(screen.getByLabelText('Report this result'));
+    expect(await screen.findByText('Report this result')).toBeTruthy();
+    const send = screen.getByLabelText('Send report');
+    expect(isDisabled(send)).toBe(true); // no reason picked yet
+    fireEvent.press(screen.getByLabelText('Wrong translation'));
+    fireEvent.changeText(screen.getByLabelText('Optional note'), 'Should be "good morning"');
+    fetch.mockResolvedValueOnce(jsonOk);
+    fireEvent.press(screen.getByLabelText('Send report'));
+    expect(await screen.findByText("Thanks, we'll review it")).toBeTruthy();
+
+    const [, init] = reportCall();
+    expect(JSON.parse(init.body)).toEqual({
+      reason: 'wrong_translation',
+      feature: 'translate',
+      result: 'Buen día, amigo',
+      from: 'English',
+      to: 'Spanish',
+      vibe: 'casual',
+      note: 'Should be "good morning"',
+    });
+    expect(init.body).not.toContain('Good morning, friend'); // the user's own input is never sent
+  });
+
+  it('shows a friendly error and keeps the sheet open when sending fails', async () => {
+    await translatedScreen('Good evening, friend (report error test)');
+    fireEvent.press(screen.getByLabelText('Report this result'));
+    fireEvent.press(await screen.findByLabelText('Offensive'));
+    fetch.mockRejectedValue(new TypeError('Network request failed'));
+    fireEvent.press(screen.getByLabelText('Send report'));
+    expect(await screen.findByText("You're offline. Check your internet connection and try again.", {}, { timeout: 5000 })).toBeTruthy();
+    expect(screen.queryByText("Thanks, we'll review it")).toBeNull();
+  }, 20000); // the app retries a network failure once after 1.5 s
+
+  it('Scan: the result has a Report button that sends the explanation', async () => {
+    fetch.mockResolvedValueOnce(
+      reply(JSON.stringify({ title: 'Menu', summary: 'A cafe menu', key_points: ['Coffee 3 €'], what_to_do: [], warnings: [], read_aloud: 'A cafe menu', readable: true }))
+    );
+    await renderScreen(ScanScreen);
+    fireEvent.press(screen.getByLabelText('Choose a photo from the gallery'));
+    expect(await screen.findByText('A cafe menu')).toBeTruthy();
+    fireEvent.press(screen.getByLabelText('Report this result'));
+    fireEvent.press(await screen.findByLabelText('Other'));
+    fetch.mockResolvedValueOnce(jsonOk);
+    fireEvent.press(screen.getByLabelText('Send report'));
+    expect(await screen.findByText("Thanks, we'll review it")).toBeTruthy();
+    const body = JSON.parse(reportCall()[1].body);
+    expect(body).toMatchObject({ reason: 'other', feature: 'scan', to: 'English' });
+    expect(body.result).toBe('Menu\nA cafe menu\nCoffee 3 €');
+  });
+
+  it('Talk: every history bubble has a Report button', async () => {
+    const now = jest.spyOn(Date, 'now');
+    now.mockReturnValue(2_000_000);
+    fetch
+      .mockResolvedValueOnce({ ok: true, status: 200, text: async () => JSON.stringify({ text: 'Where is the market?' }) })
+      .mockResolvedValueOnce(reply('{"translation":"¿Dónde está el mercado?","pronunciation":"DOHN-deh"}'));
+    await renderScreen(TalkScreen);
+    await act(async () => fireEvent.press(screen.getAllByLabelText('Start recording')[1]));
+    now.mockReturnValue(2_003_000); // 3 s later
+    await act(async () => fireEvent.press(screen.getByLabelText('Stop recording')));
+    expect(await screen.findByText('¿Dónde está el mercado?')).toBeTruthy();
+    fireEvent.press(screen.getByLabelText('Open conversation history'));
+    expect(await screen.findByLabelText('Report this result')).toBeTruthy();
+    now.mockRestore();
+  });
+});
+
 describe('other screens render', () => {
   it('Phrasebook shows the travel language offline and switches languages', async () => {
     await renderScreen(PhrasebookScreen, { onboarded: true, travelLanguage: 'Japanese' });

@@ -80,7 +80,7 @@ async function check(name, fn) {
 
 (async () => {
   await new Promise((r) => fake.listen(FAKE_PORT, '127.0.0.1', r));
-  const server = startServer({ APP_TOKEN: TOKEN, RATE_LIMIT_PER_MIN: '14', GLOBAL_LIMIT_PER_MIN: '1000' });
+  const server = startServer({ APP_TOKEN: TOKEN, RATE_LIMIT_PER_MIN: '20', GLOBAL_LIMIT_PER_MIN: '1000' });
   await server.ready();
 
   await check('GET /health works without a token', async () => {
@@ -143,13 +143,46 @@ async function check(name, fn) {
     const r = await fetch(`${BASE}/api/audio/transcriptions`, { method: 'POST', headers: { 'x-app-token': TOKEN }, body: form });
     assert.equal(r.status, 413);
   });
+  const report = (body, headers = { 'x-app-token': TOKEN }) =>
+    fetch(`${BASE}/api/report`, { method: 'POST', headers: { 'content-type': 'application/json', ...headers }, body: JSON.stringify(body) });
+  await check('POST /api/report logs the report as JSON and returns ok', async () => {
+    const r = await report({ reason: 'offensive', feature: 'translate', from: 'English', to: 'Hindi', vibe: 'local', result: 'REPORTED-RESULT-77', note: 'rude word', original: SECRET_USER_TEXT });
+    assert.equal(r.status, 200);
+    assert.deepEqual(await r.json(), { ok: true });
+    const line = server.logs().split('\n').find((l) => l.includes('REPORTED-RESULT-77'));
+    assert.ok(line, 'report not logged');
+    const entry = JSON.parse(line);
+    assert.equal(entry.level, 'report');
+    assert.deepEqual(entry.report, { reason: 'offensive', feature: 'translate', from: 'English', to: 'Hindi', vibe: 'local', result: 'REPORTED-RESULT-77', note: 'rude word' });
+    assert.ok(!line.includes(SECRET_USER_TEXT), 'the original input must not be logged');
+    assert.ok(!/ip|address/i.test(Object.keys(entry).join(' ')), 'no IP or identifiers');
+  });
+  await check('report with an unknown reason -> 400', async () => {
+    assert.equal((await report({ reason: 'spam', result: 'x' })).status, 400);
+  });
+  await check('report without a result -> 400', async () => {
+    assert.equal((await report({ reason: 'other', result: '   ' })).status, 400);
+  });
+  await check('report needs the app token', async () => {
+    assert.equal((await report({ reason: 'other', result: 'x' }, {})).status, 401);
+  });
+  await check('report fields are trimmed to size', async () => {
+    const r = await report({ reason: 'other', feature: 'hacker', result: 'LONG'.repeat(1000), note: 'n'.repeat(900), from: 'x'.repeat(99) });
+    assert.equal(r.status, 200);
+    const entry = JSON.parse(server.logs().split('\n').filter((l) => l.includes('"level":"report"')).pop());
+    assert.equal(entry.report.result.length, 2000);
+    assert.equal(entry.report.note.length, 500);
+    assert.equal(entry.report.from.length, 40);
+    assert.equal(entry.report.feature, 'other');
+  });
+
   await check('browser origins are not allowed by CORS', async () => {
     const r = await fetch(`${BASE}/health`, { headers: { origin: 'https://evil.example' } });
     assert.equal(r.headers.get('access-control-allow-origin'), null);
   });
   await check('per-IP rate limit -> friendly 429 JSON', async () => {
     let last;
-    for (let i = 0; i < 16; i++) last = await chat('hello again');
+    for (let i = 0; i < 22; i++) last = await chat('hello again');
     assert.equal(last.status, 429);
     const j = await last.json();
     assert.match(j.error.message, /^Busy, try again in a moment/);

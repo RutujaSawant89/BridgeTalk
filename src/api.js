@@ -160,6 +160,17 @@ export async function chatJSON(messages, options = {}) {
   return parseJSON(await chat(messages, { ...options, json: false, temperature: 0 }));
 }
 
+// Reports a bad AI result to the server (Play's AI-generated content policy). Sends only the
+// AI output being reported, the reason, the language pair and an optional note.
+export async function sendReport({ reason, feature, result, from, to, vibe, note }) {
+  if (!API_URL) throw new AppError('config', 'Reports need the BridgeTalk server (EXPO_PUBLIC_API_URL)');
+  return request('/report', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ reason, feature, result, from, to, vibe, note }),
+  });
+}
+
 // uri: local audio file from the recorder. languageCode: Whisper ISO code, or null to auto-detect.
 export async function transcribe(uri, languageCode) {
   const form = new FormData();

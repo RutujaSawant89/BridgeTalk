@@ -10,6 +10,7 @@ import ActionButton from '../components/ActionButton';
 import IconButton from '../components/IconButton';
 import PhraseOfTheDay from '../components/PhraseOfTheDay';
 import ShareCardModal from '../components/ShareCardModal';
+import ReportButton from '../components/ReportButton';
 import { SkeletonCard } from '../components/Skeleton';
 import { VIBES, getLanguage } from '../languages';
 import { translateAllVibes } from '../translate';
@@ -197,6 +198,7 @@ export default function TranslateScreen({ navigation }) {
                 accessibilityLabel={starred ? 'Remove from saved' : 'Save translation'}
               />
               <ActionButton icon="share-2" label="Share" onPress={openShare} accessibilityLabel="Share as an image card" />
+              <ReportButton item={{ feature: 'translate', result: current.translation, from: result.from, to: result.to, vibe: vibeId }} />
             </View>
           </View>
         ) : null}

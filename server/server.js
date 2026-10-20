@@ -185,6 +185,32 @@ app.post('/api/audio/transcriptions', upload.single('file'), async (req, res) =>
   });
 });
 
+// User reports of bad AI output (Play's AI-generated content policy). The one place user-chosen
+// content is logged: only the reported AI result and the optional note, never the user's original
+// input, IP address or any identifier. Review them in the Render log by searching for "report".
+const REPORT_REASONS = new Set(['offensive', 'wrong_translation', 'other']);
+const REPORT_FEATURES = new Set(['translate', 'talk', 'scan']);
+const clip = (value, max) => (typeof value === 'string' ? value.trim().slice(0, max) : '');
+
+app.post('/api/report', express.json({ limit: '32kb' }), (req, res) => {
+  const body = req.body || {};
+  if (!REPORT_REASONS.has(body.reason)) return sendError(res, 400, 'Unknown report reason.');
+  const result = clip(body.result, 2000);
+  if (!result) return sendError(res, 400, 'Nothing to report.');
+  log('report', {
+    report: {
+      reason: body.reason,
+      feature: REPORT_FEATURES.has(body.feature) ? body.feature : 'other',
+      from: clip(body.from, 40),
+      to: clip(body.to, 40),
+      vibe: clip(body.vibe, 20),
+      result,
+      note: clip(body.note, 500),
+    },
+  });
+  res.json({ ok: true });
+});
+
 app.use((req, res) => sendError(res, 404, 'Not found.'));
 
 // Bad JSON, oversized uploads and anything unexpected come back as { error: { message } }.

@@ -12,6 +12,7 @@ import { AppError, friendlyMessage } from '../errors';
 import { useOnLeave, permissionAlert } from '../hooks';
 import { base64Bytes } from '../text';
 import { SkeletonCard } from '../components/Skeleton';
+import ReportButton from '../components/ReportButton';
 import { usePrefs } from '../prefs';
 import * as haptics from '../haptics';
 import { colors, fonts, icon as iconSize, radius, scriptFont, space, touch } from '../theme';
@@ -243,6 +244,20 @@ export default function ScanScreen() {
         ) : null}
 
         {data ? (
+          <View style={styles.reportRow}>
+            <ReportButton
+              compact
+              item={{
+                feature: 'scan',
+                result: [data.title, data.summary, ...data.key_points, ...data.what_to_do, ...data.warnings].filter(Boolean).join('\n'),
+                from: SCAN_MODES.find((m) => m.id === result.modeId)?.label ?? '',
+                to: result.language,
+              }}
+            />
+          </View>
+        ) : null}
+
+        {data ? (
           <View style={styles.disclaimerRow}>
             <Feather name="cpu" size={iconSize.sm} color={colors.muted} />
             <Text style={styles.disclaimer}>This explanation is made by AI and can be wrong. Check important details yourself or with an expert.</Text>
@@ -328,6 +343,7 @@ const styles = StyleSheet.create({
     padding: space.md + 2,
   },
   medNoteText: { flex: 1, color: colors.tipText, fontSize: 15, fontFamily: fonts.semibold, lineHeight: 21 },
+  reportRow: { alignItems: 'center', marginBottom: -space.sm },
   disclaimerRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'center', gap: space.sm, paddingHorizontal: space.md },
   disclaimer: { flexShrink: 1, color: colors.muted, fontSize: 13, fontFamily: fonts.regular, textAlign: 'center', lineHeight: 19 },
 });

@@ -1,6 +1,6 @@
 {
   "name": "bridgetalk-server",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "private": true,
   "description": "Proxy that forwards BridgeTalk API calls to Groq so the API key stays on the server",
   "main": "server.js",
